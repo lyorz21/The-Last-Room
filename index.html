@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>THE LAST ROOM — FORGOTTEN</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- =========================
+       CINEMATIC
+  ========================== -->
+
+  <section id="cinematic" class="screen active">
+
+    <div class="cinematic-bg"></div>
+
+    <div class="cinematic-content">
+
+      <div id="cinematicText"></div>
+
+      <button id="skipCinematic">
+        SKIP
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- =========================
+       CHARACTER CREATOR
+  ========================== -->
+
+  <section id="creator" class="screen">
+
+    <div class="creator-box">
+
+      <div class="creator-title">
+        <small>THE LAST ROOM</small>
+        <h1>CREATE YOUR CHARACTER</h1>
+      </div>
+
+      <div class="character-preview">
+
+        <div id="character">
+          <div class="hair"></div>
+          <div class="head"></div>
+          <div class="eyes"></div>
+          <div class="body"></div>
+        </div>
+
+      </div>
+
+      <div class="creator-controls">
+
+        <label>
+          NAME
+          <input
+            id="playerName"
+            maxlength="14"
+            placeholder="Your name..."
+          >
+        </label>
+
+        <label>
+          SKIN
+          <select id="skin">
+            <option value="light">Light</option>
+            <option value="tan">Tan</option>
+            <option value="brown">Brown</option>
+          </select>
+        </label>
+
+        <label>
+          HAIR
+          <select id="hair">
+            <option value="dark">Dark</option>
+            <option value="brown">Brown</option>
+            <option value="black">Black</option>
+          </select>
+        </label>
+
+        <label>
+          OUTFIT
+          <select id="outfit">
+            <option value="hoodie">Dark Hoodie</option>
+            <option value="shirt">White Shirt</option>
+            <option value="jacket">Black Jacket</option>
+          </select>
+        </label>
+
+      </div>
+
+      <button id="startGame" class="main-button">
+        ENTER THE HOUSE
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- =========================
+       GAME
+  ========================== -->
+
+  <section id="game" class="screen">
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+
+    <div id="hud">
+
+      <div class="hud-top">
+
+        <div class="name-display">
+          <span id="displayName">PLAYER</span>
+        </div>
+
+        <div class="battery">
+          🔦
+          <span id="batteryValue">100</span>%
+        </div>
+
+      </div>
+
+      <div class="objective">
+        <span>OBJECTIVE</span>
+        <p id="objectiveText">
+          Find a way inside the house.
+        </p>
+      </div>
+
+      <div id="interaction">
+        <span id="interactionText"></span>
+      </div>
+
+    </div>
+
+
+    <!-- MOBILE CONTROLS -->
+
+    <div id="mobileControls">
+
+      <button data-key="ArrowUp">▲</button>
+
+      <div>
+        <button data-key="ArrowLeft">◀</button>
+        <button data-key="ArrowDown">▼</button>
+        <button data-key="ArrowRight">▶</button>
+      </div>
+
+    </div>
+
+
+    <button id="flashlightButton">
+      🔦
+    </button>
+
+  </section>
+
+
+  <!-- =========================
+       GAME OVER
+  ========================== -->
+
+  <section id="gameOver" class="screen">
+
+    <div class="ending-box">
+
+      <div class="glitch-title">
+        YOU SHOULDN'T HAVE COME BACK
+      </div>
+
+      <p>
+        Something noticed you.
+      </p>
+
+      <button onclick="location.reload()">
+        TRY AGAIN
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <script src="game.js"></script>
+
+</body>
+  </html>

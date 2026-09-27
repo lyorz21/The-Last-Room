@@ -1,0 +1,664 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+
+  background: #020303;
+  color: white;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+
+/* =========================
+   SCREEN SYSTEM
+========================= */
+
+.screen {
+  position: fixed;
+  inset: 0;
+
+  display: none;
+
+  width: 100vw;
+  height: 100vh;
+
+  overflow: hidden;
+}
+
+.screen.active {
+  display: flex;
+}
+
+
+/* =========================
+   CINEMATIC
+========================= */
+
+#cinematic {
+  background: #000;
+
+  justify-content: center;
+  align-items: center;
+}
+
+.cinematic-bg {
+  position: absolute;
+  inset: 0;
+
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(50, 50, 50, .12),
+      transparent 45%
+    ),
+    linear-gradient(
+      rgba(0,0,0,.25),
+      rgba(0,0,0,.95)
+    );
+
+  animation: breathing 5s infinite alternate;
+}
+
+@keyframes breathing {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.04);
+  }
+}
+
+.cinematic-content {
+  position: relative;
+
+  width: min(800px, 90vw);
+
+  text-align: center;
+
+  z-index: 2;
+}
+
+#cinematicText {
+  min-height: 180px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding: 30px;
+
+  color: #ddd;
+
+  font-size: clamp(
+    18px,
+    3vw,
+    32px
+  );
+
+  line-height: 1.6;
+
+  text-shadow:
+    0 0 15px rgba(255,255,255,.2);
+}
+
+#skipCinematic {
+  position: absolute;
+
+  right: 0;
+  top: 220px;
+
+  padding: 8px 16px;
+
+  background: transparent;
+  border: 1px solid #444;
+
+  color: #777;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   CHARACTER CREATOR
+========================= */
+
+#creator {
+  justify-content: center;
+  align-items: center;
+
+  background:
+    radial-gradient(
+      circle at center,
+      #171717,
+      #050505 65%,
+      #000
+    );
+}
+
+.creator-box {
+
+  width: min(900px, 94vw);
+  max-height: 94vh;
+
+  padding: 30px;
+
+  overflow-y: auto;
+
+  border: 1px solid #292929;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(30,30,30,.9),
+      rgba(5,5,5,.96)
+    );
+
+  box-shadow:
+    0 0 60px rgba(0,0,0,.9);
+}
+
+.creator-title {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.creator-title small {
+  color: #777;
+  letter-spacing: 5px;
+}
+
+.creator-title h1 {
+  margin-top: 8px;
+
+  font-size: clamp(
+    24px,
+    5vw,
+    44px
+  );
+
+  letter-spacing: 4px;
+}
+
+
+/* CHARACTER */
+
+.character-preview {
+
+  height: 260px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background:
+    radial-gradient(
+      circle,
+      #272727,
+      #090909 70%
+    );
+
+  margin-bottom: 25px;
+}
+
+#character {
+
+  position: relative;
+
+  width: 120px;
+  height: 210px;
+}
+
+
+/* HEAD */
+
+.head {
+
+  position: absolute;
+
+  width: 80px;
+  height: 90px;
+
+  left: 20px;
+  top: 25px;
+
+  border-radius:
+    45% 45%
+    42% 42%;
+
+  background: #c58e6c;
+
+  box-shadow:
+    0 10px 20px rgba(0,0,0,.4);
+}
+
+
+/* HAIR */
+
+.hair {
+
+  position: absolute;
+
+  width: 90px;
+  height: 55px;
+
+  left: 15px;
+  top: 10px;
+
+  border-radius:
+    60% 50%
+    20% 20%;
+
+  background: #171717;
+
+  z-index: 3;
+}
+
+
+/* EYES */
+
+.eyes {
+
+  position: absolute;
+
+  width: 45px;
+  height: 8px;
+
+  left: 38px;
+  top: 65px;
+
+  border-top:
+    3px solid #111;
+
+  z-index: 4;
+}
+
+
+/* BODY */
+
+.body {
+
+  position: absolute;
+
+  width: 105px;
+  height: 100px;
+
+  left: 7px;
+  top: 110px;
+
+  border-radius: 20px 20px 5px 5px;
+
+  background: #151515;
+}
+
+
+/* CONTROLS */
+
+.creator-controls {
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 15px;
+}
+
+.creator-controls label {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 7px;
+
+  color: #888;
+
+  font-size: 12px;
+
+  letter-spacing: 2px;
+}
+
+.creator-controls input,
+.creator-controls select {
+
+  width: 100%;
+
+  padding: 12px;
+
+  background: #111;
+
+  border: 1px solid #333;
+
+  color: white;
+
+  outline: none;
+}
+
+
+/* BUTTON */
+
+.main-button {
+
+  width: 100%;
+
+  margin-top: 25px;
+
+  padding: 16px;
+
+  background: #111;
+
+  color: white;
+
+  border: 1px solid #555;
+
+  cursor: pointer;
+
+  letter-spacing: 3px;
+
+  transition: .2s;
+}
+
+.main-button:hover {
+  background: #292929;
+}
+
+
+/* =========================
+   GAME
+========================= */
+
+#game {
+  background: #050505;
+}
+
+#gameCanvas {
+
+  position: absolute;
+
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  display: block;
+}
+
+
+/* =========================
+   HUD
+========================= */
+
+#hud {
+
+  position: absolute;
+
+  inset: 0;
+
+  pointer-events: none;
+}
+
+.hud-top {
+
+  position: absolute;
+
+  left: 20px;
+  right: 20px;
+  top: 20px;
+
+  display: flex;
+
+  justify-content: space-between;
+}
+
+.name-display {
+
+  padding: 8px 14px;
+
+  background: rgba(0,0,0,.55);
+
+  border-left: 2px solid #aaa;
+
+  font-size: 12px;
+
+  letter-spacing: 2px;
+}
+
+.battery {
+
+  padding: 8px 14px;
+
+  background: rgba(0,0,0,.55);
+
+  font-size: 13px;
+}
+
+.objective {
+
+  position: absolute;
+
+  left: 20px;
+  bottom: 25px;
+
+  width: min(350px, 75vw);
+
+  padding: 12px;
+
+  background: rgba(0,0,0,.6);
+
+  border-left: 2px solid #aaa;
+}
+
+.objective span {
+
+  font-size: 10px;
+
+  letter-spacing: 3px;
+
+  color: #777;
+}
+
+.objective p {
+
+  margin-top: 5px;
+
+  font-size: 13px;
+
+  color: #ddd;
+}
+
+#interaction {
+
+  position: absolute;
+
+  left: 50%;
+  top: 58%;
+
+  transform: translate(-50%,-50%);
+
+  text-align: center;
+
+  font-size: 14px;
+
+  text-shadow:
+    0 0 10px black;
+}
+
+
+/* =========================
+   MOBILE CONTROLS
+========================= */
+
+#mobileControls {
+
+  position: absolute;
+
+  left: 20px;
+  bottom: 100px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 4px;
+}
+
+#mobileControls div {
+
+  display: flex;
+
+  gap: 4px;
+}
+
+#mobileControls button,
+#flashlightButton {
+
+  width: 52px;
+  height: 52px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(10,10,10,.7);
+
+  border: 1px solid #555;
+
+  color: white;
+
+  font-size: 20px;
+}
+
+#flashlightButton {
+
+  position: absolute;
+
+  right: 25px;
+  bottom: 100px;
+}
+
+
+/* =========================
+   GAME OVER
+========================= */
+
+#gameOver {
+
+  justify-content: center;
+  align-items: center;
+
+  background: #000;
+}
+
+.ending-box {
+
+  width: min(600px, 90vw);
+
+  text-align: center;
+}
+
+.glitch-title {
+
+  font-size: clamp(
+    25px,
+    6vw,
+    55px
+  );
+
+  letter-spacing: 4px;
+
+  animation:
+    glitch .15s infinite;
+}
+
+.ending-box p {
+
+  margin: 25px;
+
+  color: #777;
+}
+
+.ending-box button {
+
+  padding: 13px 30px;
+
+  background: transparent;
+
+  border: 1px solid #555;
+
+  color: white;
+}
+
+
+@keyframes glitch {
+
+  0% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(2px);
+  }
+
+  100% {
+    transform: translateX(-2px);
+  }
+}
+
+
+/* =========================
+   PORTRAIT MODE
+========================= */
+
+@media (orientation: portrait) {
+
+  .creator-box {
+    padding: 20px;
+  }
+
+  .creator-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .character-preview {
+    height: 220px;
+  }
+
+}
+
+
+/* =========================
+   LANDSCAPE MODE
+========================= */
+
+@media (orientation: landscape) {
+
+  #mobileControls {
+    bottom: 30px;
+  }
+
+  #flashlightButton {
+    bottom: 30px;
+  }
+
+      }

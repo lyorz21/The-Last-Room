@@ -2,197 +2,393 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta
+    name="viewport"
+    content="width=device-width,
+    initial-scale=1.0,
+    maximum-scale=1.0,
+    user-scalable=no"
+  >
 
   <title>THE LAST ROOM — FORGOTTEN</title>
+
+  <!-- FONT VARIATIONS -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700;800&family=Creepster&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet"
+  >
 
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- =========================
-       CINEMATIC
-  ========================== -->
+<!-- =====================================================
+     CINEMATIC
+===================================================== -->
 
-  <section id="cinematic" class="screen active">
+<section id="cinematic" class="screen active">
 
-    <div class="cinematic-bg"></div>
+  <div class="rain"></div>
+  <div class="cinematic-vignette"></div>
 
-    <div class="cinematic-content">
+  <div class="cinematic-content">
 
-      <div id="cinematicText"></div>
-
-      <button id="skipCinematic">
-        SKIP
-      </button>
-
+    <div class="chapter-label">
+      CHAPTER I
     </div>
 
-  </section>
+    <div id="cinematicText"></div>
 
-
-  <!-- =========================
-       CHARACTER CREATOR
-  ========================== -->
-
-  <section id="creator" class="screen">
-
-    <div class="creator-box">
-
-      <div class="creator-title">
-        <small>THE LAST ROOM</small>
-        <h1>CREATE YOUR CHARACTER</h1>
-      </div>
-
-      <div class="character-preview">
-
-        <div id="character">
-          <div class="hair"></div>
-          <div class="head"></div>
-          <div class="eyes"></div>
-          <div class="body"></div>
-        </div>
-
-      </div>
-
-      <div class="creator-controls">
-
-        <label>
-          NAME
-          <input
-            id="playerName"
-            maxlength="14"
-            placeholder="Your name..."
-          >
-        </label>
-
-        <label>
-          SKIN
-          <select id="skin">
-            <option value="light">Light</option>
-            <option value="tan">Tan</option>
-            <option value="brown">Brown</option>
-          </select>
-        </label>
-
-        <label>
-          HAIR
-          <select id="hair">
-            <option value="dark">Dark</option>
-            <option value="brown">Brown</option>
-            <option value="black">Black</option>
-          </select>
-        </label>
-
-        <label>
-          OUTFIT
-          <select id="outfit">
-            <option value="hoodie">Dark Hoodie</option>
-            <option value="shirt">White Shirt</option>
-            <option value="jacket">Black Jacket</option>
-          </select>
-        </label>
-
-      </div>
-
-      <button id="startGame" class="main-button">
-        ENTER THE HOUSE
-      </button>
-
-    </div>
-
-  </section>
-
-
-  <!-- =========================
-       GAME
-  ========================== -->
-
-  <section id="game" class="screen">
-
-    <canvas id="gameCanvas"></canvas>
-
-    <!-- HUD -->
-
-    <div id="hud">
-
-      <div class="hud-top">
-
-        <div class="name-display">
-          <span id="displayName">PLAYER</span>
-        </div>
-
-        <div class="battery">
-          🔦
-          <span id="batteryValue">100</span>%
-        </div>
-
-      </div>
-
-      <div class="objective">
-        <span>OBJECTIVE</span>
-        <p id="objectiveText">
-          Find a way inside the house.
-        </p>
-      </div>
-
-      <div id="interaction">
-        <span id="interactionText"></span>
-      </div>
-
-    </div>
-
-
-    <!-- MOBILE CONTROLS -->
-
-    <div id="mobileControls">
-
-      <button data-key="ArrowUp">▲</button>
-
-      <div>
-        <button data-key="ArrowLeft">◀</button>
-        <button data-key="ArrowDown">▼</button>
-        <button data-key="ArrowRight">▶</button>
-      </div>
-
-    </div>
-
-
-    <button id="flashlightButton">
-      🔦
+    <button id="skipCinematic">
+      SKIP
     </button>
 
-  </section>
+  </div>
+
+</section>
 
 
-  <!-- =========================
-       GAME OVER
-  ========================== -->
+<!-- =====================================================
+     CHARACTER CREATOR
+===================================================== -->
 
-  <section id="gameOver" class="screen">
+<section id="creator" class="screen">
 
-    <div class="ending-box">
+  <div class="creator-box">
 
-      <div class="glitch-title">
-        YOU SHOULDN'T HAVE COME BACK
-      </div>
+    <div class="creator-heading">
+
+      <span>THE LAST ROOM</span>
+
+      <h1>WHO ARE YOU?</h1>
 
       <p>
-        Something noticed you.
+        The house remembers people.
       </p>
 
-      <button onclick="location.reload()">
-        TRY AGAIN
+    </div>
+
+    <div class="character-preview">
+
+      <div class="character-shadow"></div>
+
+      <div id="character">
+
+        <div class="hair"></div>
+        <div class="head"></div>
+
+        <div class="eye eye-left"></div>
+        <div class="eye eye-right"></div>
+
+        <div class="body"></div>
+
+      </div>
+
+    </div>
+
+    <div class="creator-controls">
+
+      <label>
+        NAME
+
+        <input
+          id="playerName"
+          maxlength="14"
+          placeholder="Enter your name..."
+        >
+      </label>
+
+      <label>
+        SKIN
+
+        <select id="skin">
+          <option value="light">Light</option>
+          <option value="tan" selected>Tan</option>
+          <option value="brown">Brown</option>
+        </select>
+      </label>
+
+      <label>
+        HAIR
+
+        <select id="hair">
+          <option value="dark">Dark</option>
+          <option value="brown">Brown</option>
+          <option value="black">Black</option>
+        </select>
+      </label>
+
+      <label>
+        OUTFIT
+
+        <select id="outfit">
+          <option value="hoodie">Dark Hoodie</option>
+          <option value="shirt">White Shirt</option>
+          <option value="jacket" selected>Black Jacket</option>
+        </select>
+      </label>
+
+    </div>
+
+    <button id="startGame" class="main-button">
+      ENTER THE HOUSE
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- =====================================================
+     GAME
+===================================================== -->
+
+<section id="game" class="screen">
+
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- TOP HUD -->
+
+  <div id="hud">
+
+    <div class="top-left">
+
+      <div class="player-name">
+        <span id="displayName">PLAYER</span>
+      </div>
+
+      <div class="chapter-ui">
+        CHAPTER I
+      </div>
+
+    </div>
+
+    <div class="top-right">
+
+      <div class="battery">
+        <span>🔦</span>
+        <span id="batteryValue">100</span>%
+      </div>
+
+      <button id="inventoryButton">
+        🎒
+      </button>
+
+      <button id="diaryButton">
+        📖
       </button>
 
     </div>
 
-  </section>
+
+    <!-- OBJECTIVE -->
+
+    <div class="objective">
+
+      <div class="objective-title">
+        CURRENT OBJECTIVE
+      </div>
+
+      <div id="objectiveText">
+        Explore the house.
+      </div>
+
+    </div>
 
 
-  <script src="game.js"></script>
+    <!-- INTERACTION -->
+
+    <div id="interaction">
+
+      <div id="interactionIcon">
+        ✦
+      </div>
+
+      <div id="interactionText"></div>
+
+    </div>
+
+
+    <!-- STORY MESSAGE -->
+
+    <div id="storyMessage">
+
+      <div id="storyMessageTitle"></div>
+
+      <div id="storyMessageText"></div>
+
+    </div>
+
+  </div>
+
+
+  <!-- MOBILE MOVEMENT -->
+
+  <div id="mobileControls">
+
+    <button data-key="ArrowUp">
+      ▲
+    </button>
+
+    <div>
+
+      <button data-key="ArrowLeft">
+        ◀
+      </button>
+
+      <button data-key="ArrowDown">
+        ▼
+      </button>
+
+      <button data-key="ArrowRight">
+        ▶
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- FLASHLIGHT -->
+
+  <button id="flashlightButton">
+    🔦
+  </button>
+
+
+  <!-- INTERACT BUTTON -->
+
+  <button id="interactButton">
+    INTERACT
+  </button>
+
+</section>
+
+
+<!-- =====================================================
+     INVENTORY
+===================================================== -->
+
+<section id="inventoryPanel" class="overlay-panel">
+
+  <div class="panel-box">
+
+    <button class="close-panel" data-close="inventoryPanel">
+      ×
+    </button>
+
+    <div class="panel-label">
+      INVENTORY
+    </div>
+
+    <h2>WHAT YOU CARRY</h2>
+
+    <div id="inventoryItems" class="inventory-grid">
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- =====================================================
+     DIARY
+===================================================== -->
+
+<section id="diaryPanel" class="overlay-panel">
+
+  <div class="panel-box diary-paper">
+
+    <button class="close-panel" data-close="diaryPanel">
+      ×
+    </button>
+
+    <div class="panel-label">
+      PERSONAL NOTES
+    </div>
+
+    <h2 id="diaryTitle">
+      THE HOUSE
+    </h2>
+
+    <div id="diaryEntries">
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- =====================================================
+     INSPECT
+===================================================== -->
+
+<section id="inspectPanel" class="overlay-panel">
+
+  <div class="panel-box inspect-paper">
+
+    <button class="close-panel" data-close="inspectPanel">
+      ×
+    </button>
+
+    <div id="inspectIcon">
+      ◈
+    </div>
+
+    <h2 id="inspectTitle">
+      OBJECT
+    </h2>
+
+    <p id="inspectText">
+    </p>
+
+    <button
+      id="collectButton"
+      class="collect-button"
+    >
+      TAKE
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- =====================================================
+     GAME OVER
+===================================================== -->
+
+<section id="gameOver" class="screen">
+
+  <div class="ending-box">
+
+    <div class="game-over-small">
+      THE HOUSE REMEMBERS
+    </div>
+
+    <h1>
+      YOU SHOULDN'T HAVE COME BACK
+    </h1>
+
+    <p>
+      Something noticed you.
+    </p>
+
+    <button onclick="location.reload()">
+      TRY AGAIN
+    </button>
+
+  </div>
+
+</section>
+
+
+<script src="game.js"></script>
 
 </body>
-  </html>
+      </html>

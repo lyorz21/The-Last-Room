@@ -1,6 +1,6 @@
 /* =====================================================
    THE LAST ROOM — FORGOTTEN
-   PHASE 1
+   PHASE 2
 ===================================================== */
 
 
@@ -8,18 +8,35 @@
    SCREEN SYSTEM
 ===================================================== */
 
-const cinematic = document.getElementById("cinematic");
-const creator = document.getElementById("creator");
-const gameScreen = document.getElementById("game");
-const gameOver = document.getElementById("gameOver");
+const screens = {
+
+  cinematic:
+    document.getElementById("cinematic"),
+
+  creator:
+    document.getElementById("creator"),
+
+  game:
+    document.getElementById("game"),
+
+  gameOver:
+    document.getElementById("gameOver")
+
+};
+
 
 function showScreen(screen) {
 
   document
     .querySelectorAll(".screen")
-    .forEach(s => s.classList.remove("active"));
+    .forEach(element => {
+
+      element.classList.remove("active");
+
+    });
 
   screen.classList.add("active");
+
 }
 
 
@@ -33,103 +50,141 @@ const cinematicText =
 const skipCinematic =
   document.getElementById("skipCinematic");
 
-const scenes = [
+
+const cinematicScenes = [
 
   "23:41 PM.",
 
   "Hujan turun sejak sore.",
 
   "Setelah bertahun-tahun...",
-  
+
   "kamu akhirnya kembali ke rumah itu.",
 
   "Rumah yang seharusnya sudah kosong.",
 
-  "Tapi malam ini...",
+  "Namun malam ini...",
   
-  "lampunya menyala.",
+  "lampunya masih menyala.",
 
-  "Dan ada sesuatu di lantai atas.",
+  "Dan dari lantai atas...",
+  
+  "terdengar suara langkah kaki.",
 
-  "...yang masih mengingatmu.",
+  "Seolah seseorang sedang menunggumu.",
 
-  "THE LAST ROOM"
+  "THE HOUSE REMEMBERS."
+
 ];
 
-let sceneIndex = 0;
+
+let cinematicIndex = 0;
 let cinematicTimer;
 
-function playScene() {
 
-  if (sceneIndex >= scenes.length) {
+function playCinematic() {
 
-    showScreen(creator);
+  if (
+    cinematicIndex >=
+    cinematicScenes.length
+  ) {
+
+    showScreen(
+      screens.creator
+    );
 
     return;
+
   }
 
+
   cinematicText.style.opacity = 0;
+
 
   setTimeout(() => {
 
     cinematicText.textContent =
-      scenes[sceneIndex];
+      cinematicScenes[
+        cinematicIndex
+      ];
 
     cinematicText.style.opacity = 1;
 
-    sceneIndex++;
+    cinematicIndex++;
 
     cinematicTimer =
-      setTimeout(playScene, 2200);
+      setTimeout(
+        playCinematic,
+        2300
+      );
 
-  }, 300);
+  }, 350);
 
 }
 
-playScene();
+
+playCinematic();
 
 
 skipCinematic.onclick = () => {
 
   clearTimeout(cinematicTimer);
 
-  showScreen(creator);
+  showScreen(
+    screens.creator
+  );
 
 };
 
 
 /* =====================================================
-   CHARACTER CREATOR
+   CHARACTER
 ===================================================== */
 
-const playerName =
-  document.getElementById("playerName");
+const playerNameInput =
+  document.getElementById(
+    "playerName"
+  );
 
-const skin =
-  document.getElementById("skin");
+const skinInput =
+  document.getElementById(
+    "skin"
+  );
 
-const hair =
-  document.getElementById("hair");
+const hairInput =
+  document.getElementById(
+    "hair"
+  );
 
-const outfit =
-  document.getElementById("outfit");
+const outfitInput =
+  document.getElementById(
+    "outfit"
+  );
 
 const character =
-  document.getElementById("character");
+  document.getElementById(
+    "character"
+  );
 
-const head =
-  character.querySelector(".head");
+const characterHead =
+  character.querySelector(
+    ".head"
+  );
 
-const hairPart =
-  character.querySelector(".hair");
+const characterHair =
+  character.querySelector(
+    ".hair"
+  );
 
-const body =
-  character.querySelector(".body");
+const characterBody =
+  character.querySelector(
+    ".body"
+  );
 
 
 function updateCharacter() {
 
-  const skinColors = {
+  const skins = {
 
     light: "#e0ad8b",
 
@@ -139,255 +194,151 @@ function updateCharacter() {
 
   };
 
-  const hairColors = {
 
-    dark: "#171717",
+  const hairs = {
 
-    brown: "#3a2419",
+    dark: "#211914",
+
+    brown: "#4a291b",
 
     black: "#050505"
 
   };
 
-  const outfitColors = {
 
-    hoodie: "#151515",
+  const outfits = {
 
-    shirt: "#d5d5d5",
+    hoodie: "#171717",
 
-    jacket: "#202020"
+    shirt: "#d2d2d2",
+
+    jacket: "#111"
 
   };
 
-  head.style.background =
-    skinColors[skin.value];
 
-  hairPart.style.background =
-    hairColors[hair.value];
+  characterHead.style.background =
+    skins[
+      skinInput.value
+    ];
 
-  body.style.background =
-    outfitColors[outfit.value];
+  characterHair.style.background =
+    hairs[
+      hairInput.value
+    ];
+
+  characterBody.style.background =
+    outfits[
+      outfitInput.value
+    ];
 
 }
 
-skin.onchange = updateCharacter;
-hair.onchange = updateCharacter;
-outfit.onchange = updateCharacter;
+
+skinInput.onchange =
+  updateCharacter;
+
+hairInput.onchange =
+  updateCharacter;
+
+outfitInput.onchange =
+  updateCharacter;
 
 updateCharacter();
 
 
 /* =====================================================
-   START GAME
+   GAME STATE
 ===================================================== */
 
-document
-  .getElementById("startGame")
-  .onclick = () => {
+const state = {
 
-    const name =
-      playerName.value.trim() || "PLAYER";
+  playerName: "PLAYER",
 
-    document
-      .getElementById("displayName")
-      .textContent =
-      name.toUpperCase();
+  room: "hallway",
 
-    startAudio();
+  battery: 100,
 
-    showScreen(gameScreen);
+  flashlight: true,
 
-    initGame();
+  inventory: [],
 
-  };
+  diary: [],
+
+  cluesFound: 0,
+
+  storyStage: 0,
+
+  photoTaken: false,
+
+  bedroomUnlocked: false,
+
+  basementUnlocked: false
+
+};
 
 
 /* =====================================================
-   AUDIO ENGINE
+   WORLD
 ===================================================== */
 
-let audioContext;
-let masterGain;
+const rooms = {
 
-function startAudio() {
+  hallway: {
 
-  if (audioContext) return;
+    name: "HALLWAY",
 
-  audioContext =
-    new (
-      window.AudioContext ||
-      window.webkitAudioContext
-    )();
+    description:
+      "Lorong panjang yang terasa jauh lebih dingin daripada bagian rumah lainnya."
 
-  masterGain =
-    audioContext.createGain();
+  },
 
-  masterGain.gain.value = 0.12;
+  living: {
 
-  masterGain.connect(
-    audioContext.destination
-  );
+    name: "LIVING ROOM",
 
-  startAmbient();
-}
+    description:
+      "Ruang tamu lama. Debu menutupi sebagian besar perabotannya."
 
+  },
 
-/* Ambient low-frequency horror */
+  bedroom: {
 
-function startAmbient() {
+    name: "BEDROOM",
 
-  const oscillator =
-    audioContext.createOscillator();
+    description:
+      "Kamar lama yang seharusnya sudah tidak pernah digunakan."
 
-  const gain =
-    audioContext.createGain();
+  },
 
-  oscillator.type = "sine";
+  basement: {
 
-  oscillator.frequency.value = 38;
+    name: "BASEMENT",
 
-  gain.gain.value = 0.06;
+    description:
+      "Udara di sini jauh lebih dingin. Bau tanah lembap memenuhi ruangan."
 
-  oscillator.connect(gain);
+  }
 
-  gain.connect(masterGain);
-
-  oscillator.start();
-
-}
-
-
-/* Footstep */
-
-function footstep() {
-
-  if (!audioContext) return;
-
-  const osc =
-    audioContext.createOscillator();
-
-  const gain =
-    audioContext.createGain();
-
-  osc.type = "triangle";
-
-  osc.frequency.value =
-    65 + Math.random() * 25;
-
-  gain.gain.setValueAtTime(
-    0.001,
-    audioContext.currentTime
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.08,
-    audioContext.currentTime + 0.02
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    audioContext.currentTime + 0.12
-  );
-
-  osc.connect(gain);
-  gain.connect(masterGain);
-
-  osc.start();
-  osc.stop(
-    audioContext.currentTime + 0.15
-  );
-
-}
-
-
-/* Horror sting */
-
-function horrorSting() {
-
-  if (!audioContext) return;
-
-  const osc =
-    audioContext.createOscillator();
-
-  const gain =
-    audioContext.createGain();
-
-  osc.type = "sawtooth";
-
-  osc.frequency.setValueAtTime(
-    120,
-    audioContext.currentTime
-  );
-
-  osc.frequency.exponentialRampToValueAtTime(
-    35,
-    audioContext.currentTime + 1.2
-  );
-
-  gain.gain.setValueAtTime(
-    0.001,
-    audioContext.currentTime
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.3,
-    audioContext.currentTime + 0.05
-  );
-
-  gain.gain.exponentialRampToValueAtTime(
-    0.001,
-    audioContext.currentTime + 1.2
-  );
-
-  osc.connect(gain);
-  gain.connect(masterGain);
-
-  osc.start();
-
-  osc.stop(
-    audioContext.currentTime + 1.3
-  );
-
-}
+};
 
 
 /* =====================================================
-   GAME VARIABLES
+   CANVAS
 ===================================================== */
 
 const canvas =
-  document.getElementById("gameCanvas");
+  document.getElementById(
+    "gameCanvas"
+  );
 
 const ctx =
   canvas.getContext("2d");
 
-let width;
-let height;
 
-const player = {
+let width = 0;
+let height = 0;
 
-  x: 300,
-
-  y: 300,
-
-  speed: 3,
-
-  radius: 12
-
-};
-
-const keys = {};
-
-let battery = 100;
-
-let flashlight = true;
-
-let footstepsTimer = 0;
-
-
-/* =====================================================
-   RESIZE
-===================================================== */
 
 function resizeCanvas() {
 
@@ -401,10 +352,31 @@ function resizeCanvas() {
 
 }
 
+
 window.addEventListener(
   "resize",
   resizeCanvas
 );
+
+
+/* =====================================================
+   PLAYER
+===================================================== */
+
+const player = {
+
+  x: 0,
+
+  y: 0,
+
+  speed: 3,
+
+  radius: 10
+
+};
+
+
+const keys = {};
 
 
 /* =====================================================
@@ -413,70 +385,307 @@ window.addEventListener(
 
 window.addEventListener(
   "keydown",
-  e => {
+  event => {
 
-    keys[e.key] = true;
+    keys[event.key] = true;
+
 
     if (
-      e.key === "f" ||
-      e.key === "F"
+      event.key === "f" ||
+      event.key === "F"
     ) {
 
       toggleFlashlight();
 
     }
 
+
+    if (
+      event.key === "e" ||
+      event.key === "E"
+    ) {
+
+      interact();
+
+    }
+
+
+    if (
+      event.key === "i" ||
+      event.key === "I"
+    ) {
+
+      togglePanel(
+        "inventoryPanel"
+      );
+
+    }
+
+
+    if (
+      event.key === "j" ||
+      event.key === "J"
+    ) {
+
+      togglePanel(
+        "diaryPanel"
+      );
+
+    }
+
   }
 );
+
 
 window.addEventListener(
   "keyup",
-  e => {
+  event => {
 
-    keys[e.key] = false;
+    keys[event.key] = false;
 
   }
 );
 
 
-/* MOBILE BUTTONS */
+/* =====================================================
+   MOBILE MOVEMENT
+===================================================== */
 
 document
-  .querySelectorAll("#mobileControls button")
+  .querySelectorAll(
+    "#mobileControls button"
+  )
   .forEach(button => {
 
     const key =
       button.dataset.key;
 
+
     button.addEventListener(
       "touchstart",
-      e => {
+      event => {
 
-        e.preventDefault();
+        event.preventDefault();
 
         keys[key] = true;
 
-      }
+      },
+      { passive: false }
     );
+
 
     button.addEventListener(
       "touchend",
-      e => {
+      event => {
 
-        e.preventDefault();
+        event.preventDefault();
 
         keys[key] = false;
 
-      }
+      },
+      { passive: false }
     );
 
   });
 
 
 document
-  .getElementById("flashlightButton")
+  .getElementById(
+    "flashlightButton"
+  )
   .onclick =
-    toggleFlashlight;
+  toggleFlashlight;
+
+
+document
+  .getElementById(
+    "interactButton"
+  )
+  .onclick =
+  interact;
+
+
+/* =====================================================
+   AUDIO
+===================================================== */
+
+let audioContext = null;
+
+let masterGain = null;
+
+
+function startAudio() {
+
+  if (audioContext) return;
+
+
+  audioContext =
+    new (
+      window.AudioContext ||
+      window.webkitAudioContext
+    )();
+
+
+  masterGain =
+    audioContext.createGain();
+
+
+  masterGain.gain.value =
+    0.13;
+
+
+  masterGain.connect(
+    audioContext.destination
+  );
+
+
+  ambientSound();
+
+}
+
+
+function createTone(
+  frequency,
+  duration,
+  volume,
+  type = "sine"
+) {
+
+  if (!audioContext) return;
+
+
+  const oscillator =
+    audioContext.createOscillator();
+
+  const gain =
+    audioContext.createGain();
+
+
+  oscillator.type =
+    type;
+
+  oscillator.frequency.value =
+    frequency;
+
+
+  gain.gain.setValueAtTime(
+    0.001,
+    audioContext.currentTime
+  );
+
+
+  gain.gain.exponentialRampToValueAtTime(
+    volume,
+    audioContext.currentTime + .03
+  );
+
+
+  gain.gain.exponentialRampToValueAtTime(
+    0.001,
+    audioContext.currentTime + duration
+  );
+
+
+  oscillator.connect(gain);
+
+  gain.connect(masterGain);
+
+
+  oscillator.start();
+
+  oscillator.stop(
+    audioContext.currentTime +
+    duration +
+    .05
+  );
+
+}
+
+
+/* LOW HORROR DRONE */
+
+function ambientSound() {
+
+  if (!audioContext) return;
+
+
+  const oscillator =
+    audioContext.createOscillator();
+
+  const gain =
+    audioContext.createGain();
+
+
+  oscillator.type =
+    "sine";
+
+  oscillator.frequency.value =
+    38;
+
+  gain.gain.value =
+    .045;
+
+
+  oscillator.connect(gain);
+
+  gain.connect(masterGain);
+
+  oscillator.start();
+
+}
+
+
+/* FOOTSTEP */
+
+function footstep() {
+
+  createTone(
+    55 + Math.random() * 25,
+    .11,
+    .055,
+    "triangle"
+  );
+
+}
+
+
+/* DOOR */
+
+function doorSound() {
+
+  createTone(
+    110,
+    .35,
+    .08,
+    "sawtooth"
+  );
+
+}
+
+
+/* ITEM */
+
+function itemSound() {
+
+  createTone(
+    440,
+    .18,
+    .055,
+    "sine"
+  );
+
+  setTimeout(
+    () =>
+      createTone(
+        660,
+        .15,
+        .04,
+        "sine"
+      ),
+    80
+  );
+
+}
 
 
 /* =====================================================
@@ -485,116 +694,20 @@ document
 
 function toggleFlashlight() {
 
-  if (battery <= 0) {
+  if (
+    state.battery <= 0
+  ) {
 
-    flashlight = false;
+    state.flashlight =
+      false;
 
     return;
 
   }
 
-  flashlight =
-    !flashlight;
 
-}
-
-
-/* =====================================================
-   PLAYER MOVEMENT
-===================================================== */
-
-function updatePlayer() {
-
-  let moving = false;
-
-  if (
-    keys["ArrowUp"] ||
-    keys["w"] ||
-    keys["W"]
-  ) {
-
-    player.y -= player.speed;
-
-    moving = true;
-
-  }
-
-  if (
-    keys["ArrowDown"] ||
-    keys["s"] ||
-    keys["S"]
-  ) {
-
-    player.y += player.speed;
-
-    moving = true;
-
-  }
-
-  if (
-    keys["ArrowLeft"] ||
-    keys["a"] ||
-    keys["A"]
-  ) {
-
-    player.x -= player.speed;
-
-    moving = true;
-
-  }
-
-  if (
-    keys["ArrowRight"] ||
-    keys["d"] ||
-    keys["D"]
-  ) {
-
-    player.x += player.speed;
-
-    moving = true;
-
-  }
-
-  /* boundaries */
-
-  player.x =
-    Math.max(
-      40,
-      Math.min(
-        width - 40,
-        player.x
-      )
-    );
-
-  player.y =
-    Math.max(
-      40,
-      Math.min(
-        height - 40,
-        player.y
-      )
-    );
-
-
-  /* footsteps */
-
-  if (moving) {
-
-    footstepsTimer++;
-
-    if (footstepsTimer > 18) {
-
-      footstep();
-
-      footstepsTimer = 0;
-
-    }
-
-  } else {
-
-    footstepsTimer = 18;
-
-  }
+  state.flashlight =
+    !state.flashlight;
 
 }
 
@@ -605,24 +718,38 @@ function updatePlayer() {
 
 function updateBattery() {
 
-  if (!flashlight) return;
+  if (
+    !state.flashlight
+  ) return;
 
-  battery -= 0.015;
 
-  battery =
+  state.battery -=
+    .012;
+
+
+  state.battery =
     Math.max(
       0,
-      battery
+      state.battery
     );
 
+
   document
-    .getElementById("batteryValue")
+    .getElementById(
+      "batteryValue"
+    )
     .textContent =
-    Math.floor(battery);
+    Math.floor(
+      state.battery
+    );
 
-  if (battery <= 0) {
 
-    flashlight = false;
+  if (
+    state.battery <= 0
+  ) {
+
+    state.flashlight =
+      false;
 
   }
 
@@ -630,15 +757,127 @@ function updateBattery() {
 
 
 /* =====================================================
-   WORLD
+   PLAYER MOVEMENT
+===================================================== */
+
+let footstepTimer = 0;
+
+
+function updatePlayer() {
+
+  let moving = false;
+
+
+  if (
+    keys["ArrowUp"] ||
+    keys["w"] ||
+    keys["W"]
+  ) {
+
+    player.y -=
+      player.speed;
+
+    moving = true;
+
+  }
+
+
+  if (
+    keys["ArrowDown"] ||
+    keys["s"] ||
+    keys["S"]
+  ) {
+
+    player.y +=
+      player.speed;
+
+    moving = true;
+
+  }
+
+
+  if (
+    keys["ArrowLeft"] ||
+    keys["a"] ||
+    keys["A"]
+  ) {
+
+    player.x -=
+      player.speed;
+
+    moving = true;
+
+  }
+
+
+  if (
+    keys["ArrowRight"] ||
+    keys["d"] ||
+    keys["D"]
+  ) {
+
+    player.x +=
+      player.speed;
+
+    moving = true;
+
+  }
+
+
+  /* WORLD BOUNDS */
+
+  player.x =
+    Math.max(
+      55,
+      Math.min(
+        width - 55,
+        player.x
+      )
+    );
+
+
+  player.y =
+    Math.max(
+      55,
+      Math.min(
+        height - 55,
+        player.y
+      )
+    );
+
+
+  /* FOOTSTEPS */
+
+  if (moving) {
+
+    footstepTimer++;
+
+
+    if (
+      footstepTimer > 20
+    ) {
+
+      footstep();
+
+      footstepTimer = 0;
+
+    }
+
+  }
+
+}
+
+
+/* =====================================================
+   WORLD DRAWING
 ===================================================== */
 
 function drawWorld() {
 
-  /* floor */
+  /* FLOOR */
 
   ctx.fillStyle =
-    "#181818";
+    "#171717";
 
   ctx.fillRect(
     0,
@@ -648,19 +887,18 @@ function drawWorld() {
   );
 
 
-  /* floor lines */
+  /* FLOOR BOARDS */
 
   ctx.strokeStyle =
     "rgba(255,255,255,.025)";
 
   ctx.lineWidth = 1;
 
-  const grid = 60;
 
   for (
     let x = 0;
     x < width;
-    x += grid
+    x += 55
   ) {
 
     ctx.beginPath();
@@ -673,10 +911,11 @@ function drawWorld() {
 
   }
 
+
   for (
     let y = 0;
     y < height;
-    y += grid
+    y += 55
   ) {
 
     ctx.beginPath();
@@ -690,54 +929,201 @@ function drawWorld() {
   }
 
 
-  /* house walls */
+  /* OUTER WALLS */
 
   ctx.fillStyle =
-    "#090909";
+    "#080808";
+
 
   ctx.fillRect(
-    30,
-    30,
-    width - 60,
-    20
-  );
-
-  ctx.fillRect(
-    30,
-    height - 50,
-    width - 60,
-    20
-  );
-
-  ctx.fillRect(
-    30,
-    30,
-    20,
-    height - 60
-  );
-
-  ctx.fillRect(
+    25,
+    25,
     width - 50,
-    30,
-    20,
-    height - 60
+    20
   );
 
 
-  /* central hallway */
+  ctx.fillRect(
+    25,
+    height - 45,
+    width - 50,
+    20
+  );
+
+
+  ctx.fillRect(
+    25,
+    25,
+    20,
+    height - 50
+  );
+
+
+  ctx.fillRect(
+    width - 45,
+    25,
+    20,
+    height - 50
+  );
+
+
+  /* CENTRAL HALL */
 
   ctx.fillStyle =
     "#101010";
 
+
   ctx.fillRect(
     width * .42,
-    50,
+    45,
     width * .16,
-    height - 100
+    height - 90
   );
 
 
-  /* rooms */
+  /* ROOMS */
+
+  drawRoom(
+    65,
+    70,
+    width * .30,
+    height * .30,
+    "LIVING ROOM"
+  );
+
+
+  drawRoom(
+    65,
+    height * .57,
+    width * .30,
+    height * .28,
+    "BEDROOM"
+  );
+
+
+  drawRoom(
+    width * .62,
+    70,
+    width * .30,
+    height * .30,
+    "BASEMENT"
+  );
+
+
+  drawRoom(
+    width * .62,
+    height * .57,
+    width * .30,
+    height * .28,
+    "DINING ROOM"
+  );
+
+
+  /* DOORS */
+
+  drawDoor(
+    width * .42,
+    height * .22,
+    "LIVING"
+  );
+
+
+  drawDoor(
+    width * .42,
+    height * .68,
+    "BEDROOM"
+  );
+
+
+  drawDoor(
+    width * .58,
+    height * .22,
+    "BASEMENT"
+  );
+
+
+  /* TABLE */
+
+  ctx.fillStyle =
+    "#282828";
+
+  ctx.fillRect(
+    width * .70,
+    height * .68,
+    100,
+    55
+  );
+
+
+  /* PHOTO */
+
+  if (
+    !state.photoTaken
+  ) {
+
+    ctx.fillStyle =
+      "#555";
+
+    ctx.fillRect(
+      width * .78,
+      height * .71,
+      30,
+      38
+    );
+
+  }
+
+
+  /* OLD CLOCK */
+
+  ctx.beginPath();
+
+  ctx.arc(
+    width * .50,
+    height * .18,
+    28,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fillStyle =
+    "#222";
+
+  ctx.fill();
+
+  ctx.strokeStyle =
+    "#555";
+
+  ctx.stroke();
+
+
+  /* 03:17 */
+
+  ctx.fillStyle =
+    "#aaa";
+
+  ctx.font =
+    "11px Cinzel";
+
+  ctx.textAlign =
+    "center";
+
+  ctx.fillText(
+    "03:17",
+    width * .50,
+    height * .185
+  );
+
+}
+
+
+function drawRoom(
+  x,
+  y,
+  w,
+  h,
+  name
+) {
 
   ctx.strokeStyle =
     "#292929";
@@ -745,56 +1131,52 @@ function drawWorld() {
   ctx.lineWidth = 5;
 
   ctx.strokeRect(
-    70,
-    80,
-    width * .28,
-    height * .3
+    x,
+    y,
+    w,
+    h
   );
 
-  ctx.strokeRect(
-    70,
-    height * .55,
-    width * .28,
-    height * .3
-  );
-
-  ctx.strokeRect(
-    width * .62,
-    80,
-    width * .28,
-    height * .3
-  );
-
-  ctx.strokeRect(
-    width * .62,
-    height * .55,
-    width * .28,
-    height * .3
-  );
-
-
-  /* mysterious red mark */
 
   ctx.fillStyle =
-    "rgba(100,0,0,.18)";
+    "rgba(255,255,255,.04)";
 
-  ctx.beginPath();
+  ctx.font =
+    "10px Cinzel";
 
-  ctx.arc(
-    width * .76,
-    height * .23,
-    45,
-    0,
-    Math.PI * 2
+  ctx.textAlign =
+    "center";
+
+  ctx.fillText(
+    name,
+    x + w / 2,
+    y + 25
   );
 
-  ctx.fill();
+}
+
+
+function drawDoor(
+  x,
+  y,
+  name
+) {
+
+  ctx.fillStyle =
+    "#3a302a";
+
+  ctx.fillRect(
+    x - 8,
+    y - 35,
+    16,
+    70
+  );
 
 }
 
 
 /* =====================================================
-   PLAYER
+   PLAYER DRAWING
 ===================================================== */
 
 function drawPlayer() {
@@ -810,7 +1192,7 @@ function drawPlayer() {
   );
 
   ctx.fillStyle =
-    "#d0d0d0";
+    "#ddd";
 
   ctx.fill();
 
@@ -818,15 +1200,17 @@ function drawPlayer() {
 
 
 /* =====================================================
-   FLASHLIGHT EFFECT
+   FLASHLIGHT / DARKNESS
 ===================================================== */
 
 function drawDarkness() {
 
-  if (!flashlight) {
+  if (
+    !state.flashlight
+  ) {
 
     ctx.fillStyle =
-      "rgba(0,0,0,.88)";
+      "rgba(0,0,0,.92)";
 
     ctx.fillRect(
       0,
@@ -840,33 +1224,47 @@ function drawDarkness() {
   }
 
 
+  const radius =
+    Math.min(
+      width,
+      height
+    ) * .52;
+
+
   const darkness =
     ctx.createRadialGradient(
       player.x,
       player.y,
-      40,
+      35,
       player.x,
       player.y,
-      Math.min(
-        width,
-        height
-      ) * .55
+      radius
     );
+
 
   darkness.addColorStop(
     0,
     "rgba(0,0,0,0)"
   );
 
+
   darkness.addColorStop(
     .45,
-    "rgba(0,0,0,.15)"
+    "rgba(0,0,0,.10)"
   );
+
+
+  darkness.addColorStop(
+    .75,
+    "rgba(0,0,0,.50)"
+  );
+
 
   darkness.addColorStop(
     1,
-    "rgba(0,0,0,.92)"
+    "rgba(0,0,0,.94)"
   );
+
 
   ctx.fillStyle =
     darkness;
@@ -882,51 +1280,208 @@ function drawDarkness() {
 
 
 /* =====================================================
-   ENTITY TEASER
+   INTERACTION OBJECTS
 ===================================================== */
 
-let entityTimer = 0;
+const interactionObjects = [
 
-function drawEntityTeaser() {
+  {
 
-  entityTimer++;
+    id: "family-photo",
 
-  if (
-    entityTimer > 600 &&
-    entityTimer < 660
+    x: .795,
+
+    y: .73,
+
+    radius: 55,
+
+    title:
+      "FAMILY PHOTOGRAPH",
+
+    icon:
+      "▣",
+
+    description:
+      "Sebuah foto keluarga lama. Ada empat orang di dalamnya. Namun seseorang berdiri terlalu jauh di belakang mereka. Wajahnya sengaja dicoret.",
+
+    item:
+      "Old Family Photograph"
+
+  },
+
+  {
+
+    id: "clock",
+
+    x: .50,
+
+    y: .18,
+
+    radius: 60,
+
+    title:
+      "THE CLOCK",
+
+    icon:
+      "◷",
+
+    description:
+      "Jarumnya berhenti tepat pada pukul 03:17. Saat kamu menyentuhnya, suara detik kecil terdengar dari dalam.",
+
+    item:
+      null
+
+  },
+
+  {
+
+    id: "bedroom-door",
+
+    x: .42,
+
+    y: .68,
+
+    radius: 65,
+
+    title:
+      "OLD BEDROOM",
+
+    icon:
+      "▯",
+
+    description:
+      "Pintunya terkunci. Dari balik pintu terdengar suara benda kecil jatuh... lalu sunyi.",
+
+    item:
+      null
+
+  },
+
+  {
+
+    id: "basement-door",
+
+    x: .58,
+
+    y: .22,
+
+    radius: 65,
+
+    title:
+      "BASEMENT",
+
+    icon:
+      "▯",
+
+    description:
+      "Pintunya terkunci. Bau tanah lembap keluar dari celah bawah pintu.",
+
+    item:
+      null
+
+  }
+
+];
+
+
+let currentInteraction =
+  null;
+
+
+/* =====================================================
+   FIND INTERACTION
+===================================================== */
+
+function findInteraction() {
+
+  currentInteraction = null;
+
+
+  for (
+    const object
+    of interactionObjects
   ) {
 
-    const ex =
-      width * .5;
+    const ox =
+      width * object.x;
 
-    const ey =
-      height * .18;
+    const oy =
+      height * object.y;
 
-    ctx.save();
 
-    ctx.globalAlpha =
-      Math.sin(
-        entityTimer * .2
-      ) * .3 + .3;
+    const distance =
+      Math.hypot(
+        player.x - ox,
+        player.y - oy
+      );
 
-    ctx.fillStyle =
-      "#050505";
 
-    ctx.beginPath();
+    if (
+      distance <
+      object.radius
+    ) {
 
-    ctx.ellipse(
-      ex,
-      ey,
-      18,
-      55,
-      0,
-      0,
-      Math.PI * 2
+      currentInteraction =
+        object;
+
+      break;
+
+    }
+
+  }
+
+
+  updateInteractionUI();
+
+}
+
+
+/* =====================================================
+   INTERACTION UI
+===================================================== */
+
+function updateInteractionUI() {
+
+  const interaction =
+    document.getElementById(
+      "interaction"
     );
 
-    ctx.fill();
+  const interactionText =
+    document.getElementById(
+      "interactionText"
+    );
 
-    ctx.restore();
+  const mobileButton =
+    document.getElementById(
+      "interactButton"
+    );
+
+
+  if (
+    currentInteraction
+  ) {
+
+    interaction.classList.add(
+      "show"
+    );
+
+    interactionText.textContent =
+      `E / TAP — ${currentInteraction.title}`;
+
+    mobileButton.classList.add(
+      "show"
+    );
+
+  } else {
+
+    interaction.classList.remove(
+      "show"
+    );
+
+    mobileButton.classList.remove(
+      "show"
+    );
 
   }
 
@@ -934,43 +1489,598 @@ function drawEntityTeaser() {
 
 
 /* =====================================================
-   GAME LOOP
+   INTERACT
 ===================================================== */
 
-function gameLoop() {
+function interact() {
 
   if (
-    !gameScreen.classList.contains(
-      "active"
-    )
+    !currentInteraction
+  ) return;
+
+
+  const object =
+    currentInteraction;
+
+
+  /* PHOTO */
+
+  if (
+    object.id ===
+    "family-photo"
   ) {
 
-    requestAnimationFrame(
-      gameLoop
-    );
+    openInspect(object);
 
     return;
 
   }
 
 
-  updatePlayer();
+  /* CLOCK */
 
-  updateBattery();
+  if (
+    object.id ===
+    "clock"
+  ) {
 
-  drawWorld();
+    openInspect(object);
 
-  drawEntityTeaser();
+    if (
+      !state.diary.includes(
+        "03:17"
+      )
+    ) {
 
-  drawPlayer();
+      addDiary(
+        "03:17",
+        "Jam rumah ini berhenti tepat pukul 03:17. Aku tidak tahu kenapa, tapi rasanya waktu itu penting."
+      );
 
-  drawDarkness();
+      updateObjective(
+        "Cari tahu apa yang terjadi pukul 03:17."
+      );
 
-  requestAnimationFrame(
-    gameLoop
+    }
+
+    return;
+
+  }
+
+
+  /* BEDROOM */
+
+  if (
+    object.id ===
+    "bedroom-door"
+  ) {
+
+    if (
+      !state.bedroomUnlocked
+    ) {
+
+      showStory(
+        "PINTU TERKUNCI",
+        "Ada sesuatu di balik pintu. Bukan suara manusia."
+      );
+
+      doorSound();
+
+      return;
+
+    }
+
+  }
+
+
+  /* BASEMENT */
+
+  if (
+    object.id ===
+    "basement-door"
+  ) {
+
+    if (
+      !state.basementUnlocked
+    ) {
+
+      showStory(
+        "BASEMENT",
+        "Kuncinya tidak ada di sini. Mungkin ada di ruangan lain."
+      );
+
+      return;
+
+    }
+
+  }
+
+}
+
+
+/* =====================================================
+   INSPECT PANEL
+===================================================== */
+
+const inspectPanel =
+  document.getElementById(
+    "inspectPanel"
+  );
+
+const inspectTitle =
+  document.getElementById(
+    "inspectTitle"
+  );
+
+const inspectText =
+  document.getElementById(
+    "inspectText"
+  );
+
+const inspectIcon =
+  document.getElementById(
+    "inspectIcon"
+  );
+
+const collectButton =
+  document.getElementById(
+    "collectButton"
+  );
+
+
+function openInspect(object) {
+
+  inspectTitle.textContent =
+    object.title;
+
+  inspectText.textContent =
+    object.description;
+
+  inspectIcon.textContent =
+    object.icon;
+
+
+  if (
+    object.item &&
+    !state.inventory.includes(
+      object.item
+    )
+  ) {
+
+    collectButton.style.display =
+      "inline-block";
+
+    collectButton.textContent =
+      "TAKE";
+
+    collectButton.onclick =
+      () => {
+
+        addInventory(
+          object.item
+        );
+
+        closePanel(
+          "inspectPanel"
+        );
+
+        if (
+          object.id ===
+          "family-photo"
+        ) {
+
+          state.photoTaken =
+            true;
+
+          state.cluesFound++;
+
+          addDiary(
+            "THE PHOTOGRAPH",
+            "Ada seseorang di foto keluarga. Wajahnya dicoret, tetapi aku merasa pernah mengenalnya."
+          );
+
+          updateObjective(
+            "Cari tahu siapa orang di dalam foto."
+          );
+
+          showStory(
+            "SOMETHING IS WRONG",
+            "Aku yakin foto ini berbeda dari yang seharusnya."
+          );
+
+        }
+
+      };
+
+  } else {
+
+    collectButton.style.display =
+      "none";
+
+  }
+
+
+  inspectPanel.classList.add(
+    "active"
   );
 
 }
+
+
+/* =====================================================
+   INVENTORY
+===================================================== */
+
+function addInventory(item) {
+
+  if (
+    state.inventory.includes(
+      item
+    )
+  ) return;
+
+
+  state.inventory.push(
+    item
+  );
+
+
+  itemSound();
+
+  renderInventory();
+
+}
+
+
+/* =====================================================
+   INVENTORY RENDER
+===================================================== */
+
+function renderInventory() {
+
+  const container =
+    document.getElementById(
+      "inventoryItems"
+    );
+
+
+  container.innerHTML = "";
+
+
+  if (
+    state.inventory.length === 0
+  ) {
+
+    container.innerHTML = `
+      <div class="inventory-item">
+        <div class="inventory-item-icon">—</div>
+        <div class="inventory-item-name">
+          EMPTY
+        </div>
+      </div>
+    `;
+
+    return;
+
+  }
+
+
+  state.inventory.forEach(
+    item => {
+
+      const element =
+        document.createElement(
+          "div"
+        );
+
+      element.className =
+        "inventory-item";
+
+      element.innerHTML = `
+        <div class="inventory-item-icon">
+          ◈
+        </div>
+
+        <div class="inventory-item-name">
+          ${item}
+        </div>
+      `;
+
+      container.appendChild(
+        element
+      );
+
+    }
+  );
+
+}
+
+
+/* =====================================================
+   DIARY
+===================================================== */
+
+function addDiary(
+  date,
+  text
+) {
+
+  if (
+    state.diary.some(
+      entry =>
+        entry.date === date
+    )
+  ) return;
+
+
+  state.diary.push({
+
+    date,
+    text
+
+  });
+
+
+  renderDiary();
+
+}
+
+
+function renderDiary() {
+
+  const container =
+    document.getElementById(
+      "diaryEntries"
+    );
+
+
+  container.innerHTML = "";
+
+
+  if (
+    state.diary.length === 0
+  ) {
+
+    container.innerHTML = `
+      <div class="diary-entry">
+        Belum ada catatan.
+      </div>
+    `;
+
+    return;
+
+  }
+
+
+  state.diary.forEach(
+    entry => {
+
+      const element =
+        document.createElement(
+          "div"
+        );
+
+      element.className =
+        "diary-entry";
+
+      element.innerHTML = `
+        <div class="diary-date">
+          ${entry.date}
+        </div>
+
+        <div>
+          ${entry.text}
+        </div>
+      `;
+
+      container.appendChild(
+        element
+      );
+
+    }
+  );
+
+}
+
+
+/* =====================================================
+   OBJECTIVE
+===================================================== */
+
+function updateObjective(
+  text
+) {
+
+  document
+    .getElementById(
+      "objectiveText"
+    )
+    .textContent =
+    text;
+
+}
+
+
+/* =====================================================
+   STORY MESSAGE
+===================================================== */
+
+let storyTimer;
+
+
+function showStory(
+  title,
+  text
+) {
+
+  const message =
+    document.getElementById(
+      "storyMessage"
+    );
+
+  const messageTitle =
+    document.getElementById(
+      "storyMessageTitle"
+    );
+
+  const messageText =
+    document.getElementById(
+      "storyMessageText"
+    );
+
+
+  messageTitle.textContent =
+    title;
+
+  messageText.textContent =
+    text;
+
+
+  message.classList.add(
+    "show"
+  );
+
+
+  clearTimeout(
+    storyTimer
+  );
+
+
+  storyTimer =
+    setTimeout(
+      () => {
+
+        message.classList.remove(
+          "show"
+        );
+
+      },
+      4500
+    );
+
+}
+
+
+/* =====================================================
+   PANELS
+===================================================== */
+
+function togglePanel(
+  id
+) {
+
+  const panel =
+    document.getElementById(
+      id
+    );
+
+  panel.classList.toggle(
+    "active"
+  );
+
+}
+
+
+function closePanel(
+  id
+) {
+
+  document
+    .getElementById(id)
+    .classList.remove(
+      "active"
+    );
+
+}
+
+
+document
+  .querySelectorAll(
+    ".close-panel"
+  )
+  .forEach(button => {
+
+    button.onclick =
+      () => {
+
+        closePanel(
+          button.dataset.close
+        );
+
+      };
+
+  });
+
+
+document
+  .getElementById(
+    "inventoryButton"
+  )
+  .onclick =
+  () => {
+
+    renderInventory();
+
+    togglePanel(
+      "inventoryPanel"
+    );
+
+  };
+
+
+document
+  .getElementById(
+    "diaryButton"
+  )
+  .onclick =
+  () => {
+
+    renderDiary();
+
+    togglePanel(
+      "diaryPanel"
+    );
+
+  };
+
+
+/* =====================================================
+   START GAME
+===================================================== */
+
+document
+  .getElementById(
+    "startGame"
+  )
+  .onclick =
+  () => {
+
+    state.playerName =
+      playerNameInput.value
+        .trim() ||
+      "PLAYER";
+
+
+    document
+      .getElementById(
+        "displayName"
+      )
+      .textContent =
+      state.playerName
+        .toUpperCase();
+
+
+    startAudio();
+
+
+    showScreen(
+      screens.game
+    );
+
+
+    initGame();
+
+  };
 
 
 /* =====================================================
@@ -981,25 +2091,80 @@ function initGame() {
 
   resizeCanvas();
 
+
   player.x =
     width / 2;
 
   player.y =
     height / 2;
 
-  battery = 100;
 
-  flashlight = true;
+  state.battery =
+    100;
 
-  entityTimer = 0;
+  state.flashlight =
+    true;
 
-  document
-    .getElementById("objectiveText")
-    .textContent =
-      "Explore the house. Find a way inside.";
+  state.inventory =
+    [];
 
-  horrorSting();
+  state.diary =
+    [];
+
+  state.cluesFound =
+    0;
+
+
+  updateObjective(
+    "Cari tahu kenapa rumah ini masih memiliki listrik."
+  );
+
+
+  addDiary(
+    "FIRST NIGHT",
+    "Aku akhirnya kembali ke rumah lama keluarga. Aku tidak tahu kenapa, tapi rasanya rumah ini masih menungguku."
+  );
+
+
+  renderInventory();
+
+  renderDiary();
 
 }
+
+
+/* =====================================================
+   MAIN LOOP
+===================================================== */
+
+function gameLoop() {
+
+  if (
+    screens.game.classList.contains(
+      "active"
+    )
+  ) {
+
+    updatePlayer();
+
+    updateBattery();
+
+    findInteraction();
+
+    drawWorld();
+
+    drawPlayer();
+
+    drawDarkness();
+
+  }
+
+
+  requestAnimationFrame(
+    gameLoop
+  );
+
+}
+
 
 gameLoop();

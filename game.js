@@ -4451,3 +4451,1282 @@ loop();
   );
 
 })();
+/* =========================================================
+   THE LAST ROOM — FORGOTTEN
+   PHASE 8
+   THE HOUSE IS ALIVE
+   ========================================================= */
+
+(() => {
+
+  const P8 = {
+
+    started: false,
+
+    houseAwake: false,
+
+    clockEventTriggered: false,
+
+    roomShiftCount: 0,
+
+    paranormalCount: 0,
+
+    photoChanged: false,
+
+    entitySeenBackground: false,
+
+    chapter2: false,
+
+    fearPulse: 0,
+
+    distortion: 0,
+
+    lastEvent: 0,
+
+    eventCooldown: 0,
+
+    eventMessage: "",
+
+    originalRoom: null
+
+  };
+
+
+  /* =====================================================
+     PHASE 8 STYLE
+  ===================================================== */
+
+  function injectPhase8Style() {
+
+    if (
+      document.getElementById("tlrPhase8Style")
+    ) return;
+
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "tlrPhase8Style";
+
+
+    style.textContent = `
+
+      #tlrChapter2 {
+
+        position:fixed;
+        inset:0;
+
+        z-index:100001;
+
+        display:flex;
+        align-items:center;
+        justify-content:center;
+
+        background:
+          radial-gradient(
+            circle,
+            rgba(30,30,35,.18),
+            #000 75%
+          );
+
+        color:#fff;
+
+        text-align:center;
+
+        pointer-events:auto;
+
+      }
+
+
+      .tlr-ch2-box {
+
+        width:min(700px,88vw);
+
+        padding:45px 25px;
+
+        animation:
+          tlrChapterFade 2s ease;
+
+      }
+
+
+      .tlr-ch2-small {
+
+        font-size:10px;
+
+        letter-spacing:7px;
+
+        opacity:.45;
+
+        margin-bottom:25px;
+
+      }
+
+
+      .tlr-ch2-title {
+
+        font-family:
+          Georgia,serif;
+
+        font-size:
+          clamp(38px,10vw,90px);
+
+        letter-spacing:
+          7px;
+
+        margin:0 0 25px;
+
+      }
+
+
+      .tlr-ch2-text {
+
+        font-size:13px;
+
+        line-height:2;
+
+        opacity:.65;
+
+      }
+
+
+      @keyframes tlrChapterFade {
+
+        from {
+          opacity:0;
+          transform:scale(1.04);
+        }
+
+        to {
+          opacity:1;
+          transform:scale(1);
+        }
+
+      }
+
+
+      .tlr-glitch {
+
+        animation:
+          tlrGlitch .12s infinite;
+
+      }
+
+
+      @keyframes tlrGlitch {
+
+        0% {
+          transform:translate(0);
+        }
+
+        25% {
+          transform:translate(2px,-1px);
+        }
+
+        50% {
+          transform:translate(-2px,1px);
+        }
+
+        75% {
+          transform:translate(1px,2px);
+        }
+
+        100% {
+          transform:translate(0);
+        }
+
+      }
+
+
+      #tlrEventText {
+
+        position:fixed;
+
+        left:50%;
+
+        bottom:18%;
+
+        transform:
+          translateX(-50%);
+
+        z-index:90001;
+
+        color:#fff;
+
+        font-size:11px;
+
+        letter-spacing:4px;
+
+        text-align:center;
+
+        opacity:0;
+
+        pointer-events:none;
+
+        transition:
+          opacity .5s;
+
+        text-shadow:
+          0 0 15px #000;
+
+      }
+
+
+      #tlrClockOverlay {
+
+        position:fixed;
+
+        inset:0;
+
+        z-index:100000;
+
+        pointer-events:none;
+
+        background:
+          rgba(0,0,0,.0);
+
+        transition:
+          background .2s;
+
+      }
+
+    `;
+
+
+    document.head.appendChild(style);
+  }
+
+
+  /* =====================================================
+     EVENT MESSAGE
+  ===================================================== */
+
+  function eventText(text, duration = 3000) {
+
+    let el =
+      document.getElementById(
+        "tlrEventText"
+      );
+
+
+    if (!el) {
+
+      el =
+        document.createElement("div");
+
+      el.id =
+        "tlrEventText";
+
+      document.body.appendChild(el);
+    }
+
+
+    el.textContent =
+      text;
+
+
+    el.style.opacity = "1";
+
+
+    clearTimeout(
+      el._timer
+    );
+
+
+    el._timer =
+      setTimeout(() => {
+
+        el.style.opacity = "0";
+
+      }, duration);
+  }
+
+
+  /* =====================================================
+     HOUSE AWAKENS
+  ===================================================== */
+
+  function awakenHouse() {
+
+    if (P8.houseAwake) return;
+
+
+    P8.houseAwake = true;
+
+    story.houseAwake = true;
+
+
+    eventText(
+      "THE HOUSE REMEMBERS YOU.",
+      4500
+    );
+
+
+    addDiarySafe(
+      "Setelah membuka ruangan terakhir, rumah mulai berubah."
+    );
+
+
+    P8.distortion = 1;
+
+    setTimeout(() => {
+
+      P8.distortion = 0;
+
+    }, 2500);
+  }
+
+
+  /* =====================================================
+     SAFE DIARY
+  ===================================================== */
+
+  function addDiarySafe(text) {
+
+    if (
+      typeof addDiary === "function"
+    ) {
+
+      addDiary(text);
+
+    } else if (
+      typeof diary !== "undefined"
+    ) {
+
+      if (!diary.includes(text)) {
+
+        diary.push(text);
+      }
+    }
+  }
+
+
+  /* =====================================================
+     03:17 EVENT
+  ===================================================== */
+
+  function clock0317Event() {
+
+    if (
+      P8.clockEventTriggered
+    ) return;
+
+
+    P8.clockEventTriggered = true;
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrClockOverlay";
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    let flashes = 0;
+
+
+    const flashTimer =
+      setInterval(() => {
+
+        flashes++;
+
+
+        overlay.style.background =
+          flashes % 2
+            ? "rgba(255,255,255,.08)"
+            : "rgba(0,0,0,.15)";
+
+
+        if (flashes >= 8) {
+
+          clearInterval(
+            flashTimer
+          );
+
+          overlay.remove();
+        }
+
+      }, 130);
+
+
+    eventText(
+      "03:17",
+      3500
+    );
+
+
+    addDiarySafe(
+      "Pada 03:17, seluruh rumah seperti berhenti bernapas."
+    );
+
+
+    P8.fearPulse = 25;
+
+    P8.distortion = 1;
+
+
+    setTimeout(() => {
+
+      P8.distortion = 0;
+
+    }, 1600);
+
+
+    playLowTone();
+  }
+
+
+  /* =====================================================
+     CHECK GAME TIME
+  ===================================================== */
+
+  function check0317() {
+
+    if (!P8.houseAwake) return;
+
+
+    /*
+      GameTime berjalan cepat,
+      jadi event dibuat berdasarkan
+      interval internal.
+    */
+
+    const cycle =
+      gameTime % 317;
+
+
+    if (
+      cycle >= 314 &&
+      cycle <= 316
+    ) {
+
+      clock0317Event();
+    }
+  }
+
+
+  /* =====================================================
+     RANDOM PARANORMAL EVENTS
+  ===================================================== */
+
+  const paranormalEvents = [
+
+    "KAMU MENDENGAR LANGKAH DI ATAS.",
+
+    "ADA YANG BERDIRI DI UJUNG KORIDOR.",
+
+    "PINTU ITU TADI TIDAK TERBUKA.",
+
+    "JANGAN LIHAT KE BELAKANG.",
+
+    "SUARA RADIO ITU KEMBALI.",
+
+    "ADA YANG MEMANGGIL NAMAMU.",
+
+    "RUMAH INI TIDAK SAMA SEPERTI TADI.",
+
+    "SESEORANG BARU SAJA LEWAT.",
+
+    "JANGAN TERLALU LAMA DIAM.",
+
+    "KAMU BUKAN SENDIRIAN."
+
+  ];
+
+
+  function randomParanormalEvent() {
+
+    if (!P8.houseAwake) return;
+
+
+    if (
+      gameTime -
+      P8.lastEvent <
+      400
+    ) return;
+
+
+    if (
+      Math.random() > .004
+    ) return;
+
+
+    P8.lastEvent =
+      gameTime;
+
+    P8.paranormalCount++;
+
+
+    const text =
+      paranormalEvents[
+        Math.floor(
+          Math.random() *
+          paranormalEvents.length
+        )
+      ];
+
+
+    eventText(
+      text,
+      3200
+    );
+
+
+    P8.fearPulse +=
+      4 + Math.random() * 8;
+
+
+    playWhisperSound();
+
+
+    /*
+      Beberapa event menyebabkan
+      perubahan kecil.
+    */
+
+    const roll =
+      Math.random();
+
+
+    if (roll < .25) {
+
+      flickerScreen();
+
+    }
+
+    else if (roll < .5) {
+
+      moveEntityBackground();
+
+    }
+
+    else if (roll < .75) {
+
+      shiftHouse();
+
+    }
+
+    else {
+
+      changePhoto();
+    }
+  }
+
+
+  /* =====================================================
+     SCREEN FLICKER
+  ===================================================== */
+
+  function flickerScreen() {
+
+    const overlay =
+      document.createElement("div");
+
+
+    Object.assign(
+      overlay.style,
+      {
+
+        position:"fixed",
+
+        inset:"0",
+
+        background:
+          "rgba(255,255,255,.12)",
+
+        zIndex:"89999",
+
+        pointerEvents:"none"
+
+      }
+    );
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    setTimeout(() => {
+
+      overlay.style.opacity =
+        "0";
+
+    }, 80);
+
+
+    setTimeout(() => {
+
+      overlay.remove();
+
+    }, 300);
+  }
+
+
+  /* =====================================================
+     ENTITY BACKGROUND APPEARANCE
+  ===================================================== */
+
+  function moveEntityBackground() {
+
+    if (
+      typeof entity === "undefined"
+    ) return;
+
+
+    entity.room =
+      currentRoom;
+
+
+    entity.x =
+      Math.random() *
+      canvas.width;
+
+
+    entity.y =
+      50 +
+      Math.random() *
+      (canvas.height - 100);
+
+
+    entity.visible = true;
+
+    entity.state =
+      "watching";
+
+
+    P8.entitySeenBackground =
+      true;
+
+
+    eventText(
+      "JANGAN MENATAPNYA.",
+      2200
+    );
+
+
+    setTimeout(() => {
+
+      if (
+        entity.state ===
+        "watching"
+      ) {
+
+        entity.visible =
+          false;
+      }
+
+    }, 1800);
+  }
+
+
+  /* =====================================================
+     HOUSE SHIFT
+  ===================================================== */
+
+  function shiftHouse() {
+
+    if (
+      P8.roomShiftCount >= 5
+    ) return;
+
+
+    P8.roomShiftCount++;
+
+
+    eventText(
+      "ADA YANG BERUBAH.",
+      2500
+    );
+
+
+    P8.distortion = 1;
+
+
+    /*
+      Perubahan visual ringan.
+      Tidak memindahkan player secara
+      tiba-tiba agar gameplay tidak rusak.
+    */
+
+    setTimeout(() => {
+
+      P8.distortion = 0;
+
+    }, 1200);
+
+
+    addDiarySafe(
+      `Perubahan rumah ke-${P8.roomShiftCount}.`
+    );
+  }
+
+
+  /* =====================================================
+     PHOTO CHANGES
+  ===================================================== */
+
+  function changePhoto() {
+
+    if (
+      P8.photoChanged
+    ) return;
+
+
+    if (
+      !story.photograph
+    ) return;
+
+
+    P8.photoChanged =
+      true;
+
+
+    story.photoChanged =
+      true;
+
+
+    eventText(
+      "FOTONYA BERUBAH.",
+      3000
+    );
+
+
+    addDiarySafe(
+      "Foto keluarga berubah ketika aku tidak melihatnya."
+    );
+
+
+    P8.fearPulse += 12;
+  }
+
+
+  /* =====================================================
+     ENTITY REACTS TO PLAYER
+  ===================================================== */
+
+  function entityReaction() {
+
+    if (
+      typeof entity === "undefined"
+    ) return;
+
+
+    if (
+      !P8.houseAwake
+    ) return;
+
+
+    if (
+      entity.room !== currentRoom
+    ) return;
+
+
+    const d =
+      Math.sqrt(
+        (player.x - entity.x) ** 2 +
+        (player.y - entity.y) ** 2
+      );
+
+
+    /*
+      Player terlalu dekat:
+      Entity menjadi lebih agresif.
+    */
+
+    if (
+      d < 260
+    ) {
+
+      entity.aggression =
+        Math.min(
+          100,
+          entity.aggression + .03
+        );
+    }
+
+
+    /*
+      Player menyalakan flashlight
+      dekat Entity.
+    */
+
+    if (
+      flashlight &&
+      d < 180
+    ) {
+
+      entity.visible =
+        true;
+
+      entity.state =
+        "watching";
+
+      P8.fearPulse += .02;
+    }
+  }
+
+
+  /* =====================================================
+     FEAR SYSTEM
+  ===================================================== */
+
+  function updateFearPulse() {
+
+    if (
+      P8.fearPulse <= 0
+    ) return;
+
+
+    P8.fearPulse *= .96;
+
+
+    if (
+      typeof fear !==
+      "undefined"
+    ) {
+
+      fear =
+        Math.min(
+          100,
+          fear +
+          P8.fearPulse * .005
+        );
+    }
+  }
+
+
+  /* =====================================================
+     CHAPTER II
+  ===================================================== */
+
+  function startChapter2() {
+
+    if (P8.chapter2) return;
+
+
+    P8.chapter2 = true;
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrChapter2";
+
+
+    overlay.innerHTML = `
+
+      <div
+        class="tlr-ch2-box"
+      >
+
+        <div
+          class="tlr-ch2-small"
+        >
+          CHAPTER II
+        </div>
+
+        <h1
+          class="tlr-ch2-title"
+        >
+          THE HOUSE
+        </h1>
+
+        <p
+          class="tlr-ch2-text"
+        >
+          Kamu pikir semuanya berakhir<br>
+          ketika pintu itu terbuka.
+          <br><br>
+          Ternyata rumahnya belum selesai
+          mengingatmu.
+        </p>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    setTimeout(() => {
+
+      overlay.style.opacity =
+        "0";
+
+    }, 4500);
+
+
+    setTimeout(() => {
+
+      overlay.remove();
+
+    }, 5600);
+
+
+    story.chapter2 =
+      true;
+
+
+    addDiarySafe(
+      "CHAPTER II — Rumah belum selesai mengingatku."
+    );
+  }
+
+
+  /* =====================================================
+     LOW AUDIO
+  ===================================================== */
+
+  function playLowTone() {
+
+    try {
+
+      if (
+        typeof sound ===
+        "function"
+      ) {
+
+        sound(
+          42,
+          .8,
+          "sine"
+        );
+
+        setTimeout(() => {
+
+          sound(
+            58,
+            .6,
+            "triangle"
+          );
+
+        }, 250);
+      }
+
+    } catch {}
+  }
+
+
+  function playWhisperSound() {
+
+    try {
+
+      if (
+        typeof whisper ===
+        "function"
+      ) {
+
+        whisper();
+
+      }
+
+    } catch {}
+  }
+
+
+  /* =====================================================
+     MONITOR STORY
+  ===================================================== */
+
+  function monitorStory() {
+
+    if (
+      typeof story ===
+      "undefined"
+    ) return;
+
+
+    /*
+      Rumah mulai hidup setelah
+      player mendapatkan Old Letter.
+    */
+
+    if (
+      story.letter &&
+      !P8.houseAwake
+    ) {
+
+      awakenHouse();
+    }
+
+
+    /*
+      Chapter II setelah secret
+      + truth ditemukan.
+    */
+
+    if (
+      story.secretSolved &&
+      story.truthFound &&
+      !P8.chapter2
+    ) {
+
+      startChapter2();
+    }
+  }
+
+
+  /* =====================================================
+     VISUAL DISTORTION
+  ===================================================== */
+
+  function drawPhase8Distortion() {
+
+    if (
+      !P8.distortion
+    ) return;
+
+
+    ctx.save();
+
+
+    const intensity =
+      P8.distortion *
+      8;
+
+
+    for (
+      let i = 0;
+      i < 5;
+      i++
+    ) {
+
+      const y =
+        Math.random() *
+        canvas.height;
+
+
+      ctx.fillStyle =
+        `rgba(255,255,255,${
+          .015 +
+          Math.random() * .025
+        })`;
+
+
+      ctx.fillRect(
+        Math.random() * -20,
+        y,
+        canvas.width + 40,
+        1 + intensity / 4
+      );
+    }
+
+
+    ctx.restore();
+  }
+
+
+  /* =====================================================
+     RANDOM CAMERA SHAKE
+  ===================================================== */
+
+  function cameraShake() {
+
+    if (
+      P8.fearPulse < 10
+    ) return;
+
+
+    const game =
+      document.getElementById(
+        "gameScreen"
+      );
+
+
+    if (!game) return;
+
+
+    game.classList.add(
+      "tlr-glitch"
+    );
+
+
+    setTimeout(() => {
+
+      game.classList.remove(
+        "tlr-glitch"
+      );
+
+    }, 180);
+  }
+
+
+  /* =====================================================
+     HOOK INTO GAME LOOP
+  ===================================================== */
+
+  const oldLoop =
+    window.loop;
+
+
+  /*
+    Karena loop Phase 6 tidak
+    tersedia sebagai window function
+    di semua browser, kita gunakan
+    interval aman.
+  */
+
+  setInterval(() => {
+
+    if (
+      typeof screens !==
+      "undefined" &&
+      screens.game &&
+      screens.game.classList.contains(
+        "active"
+      )
+    ) {
+
+      monitorStory();
+
+      check0317();
+
+      randomParanormalEvent();
+
+      entityReaction();
+
+      updateFearPulse();
+
+      if (
+        P8.fearPulse > 12 &&
+        Math.random() < .08
+      ) {
+
+        cameraShake();
+      }
+
+    }
+
+  }, 100);
+
+
+  /* =====================================================
+     DRAW HOOK
+  ===================================================== */
+
+  const originalRender =
+    window.render;
+
+
+  /*
+    Tambahkan overlay visual
+    dengan interval sehingga tidak
+    merusak render Phase 6.
+  */
+
+  setInterval(() => {
+
+    if (
+      typeof screens !==
+      "undefined" &&
+      screens.game &&
+      screens.game.classList.contains(
+        "active"
+      )
+    ) {
+
+      drawPhase8Distortion();
+    }
+
+  }, 80);
+
+
+  /* =====================================================
+     SECRET ENDING CONDITION
+  ===================================================== */
+
+  function checkHiddenEnding() {
+
+    if (
+      typeof story ===
+      "undefined"
+    ) return;
+
+
+    if (
+      story.chapter2 &&
+      story.entityAwake &&
+      story.truthFound &&
+      P8.entitySeenBackground &&
+      P8.photoChanged
+    ) {
+
+      story.hiddenEndingReady =
+        true;
+    }
+  }
+
+
+  setInterval(
+    checkHiddenEnding,
+    1000
+  );
+
+
+  /* =====================================================
+     NEW SECRET INTERACTION
+  ===================================================== */
+
+  function secretEndingHint() {
+
+    if (
+      !story.hiddenEndingReady
+    ) return;
+
+
+    eventText(
+      "ADA SESUATU DI BALIK FOTO.",
+      3000
+    );
+
+
+    addDiarySafe(
+      "Ada satu hal lagi yang belum kulihat."
+    );
+  }
+
+
+  /*
+    Saat player membuka diary
+    atau melakukan interaksi,
+    sesekali munculkan hint.
+  */
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key.toLowerCase() === "j"
+      ) {
+
+        secretEndingHint();
+      }
+
+    }
+  );
+
+
+  /* =====================================================
+     PHASE 8 BOOT
+  ===================================================== */
+
+  injectPhase8Style();
+
+
+  console.log(
+    "THE LAST ROOM — FORGOTTEN | PHASE 8: THE HOUSE IS ALIVE"
+  );
+
+})();

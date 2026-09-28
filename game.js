@@ -1,3653 +1,2590 @@
 /* =========================================================
    THE LAST ROOM — FORGOTTEN
-   PHASE 5 — REALISTIC HOUSE
-   FULL game.js REPLACEMENT
-========================================================= */
+   PHASE 6
+   SAVE SYSTEM + MULTIPLE ENDINGS + SECRET ROOM
+   + FINAL ENTITY EVENT + ACHIEVEMENTS
+   ========================================================= */
 
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas?.getContext("2d");
+const ctx = canvas.getContext("2d");
+
+/* =========================
+   SCREEN SYSTEM
+========================= */
 
 const screens = {
-    cinematic: document.getElementById("cinematicScreen"),
-    creator: document.getElementById("creatorScreen"),
-    game: document.getElementById("gameScreen"),
-    gameover: document.getElementById("gameOverScreen")
+  cinematic: document.getElementById("cinematicScreen"),
+  creator: document.getElementById("creatorScreen"),
+  game: document.getElementById("gameScreen"),
+  over: document.getElementById("gameOverScreen")
 };
 
-/* =========================================================
-   GAME
-========================================================= */
+function showScreen(name) {
+  Object.values(screens).forEach(screen => {
+    if (screen) screen.classList.remove("active");
+  });
 
-let gameStarted = false;
-let gameOver = false;
+  if (screens[name]) {
+    screens[name].classList.add("active");
+  }
+}
+
+/* =========================
+   UI
+========================= */
+
+const ui = {
+  chapter: document.getElementById("chapter"),
+  battery: document.getElementById("battery"),
+  objective: document.getElementById("objective"),
+  storyMessage: document.getElementById("storyMessage"),
+
+  inventoryList: document.getElementById("inventoryList"),
+  diaryList: document.getElementById("diaryList"),
+
+  inspectOverlay: document.getElementById("inspectOverlay"),
+  inspectTitle: document.getElementById("inspectTitle"),
+  inspectText: document.getElementById("inspectText"),
+  closeInspect: document.getElementById("closeInspect"),
+
+  flashlightBtn: document.getElementById("flashlightBtn"),
+  interactBtn: document.getElementById("interactBtn"),
+
+  upBtn: document.getElementById("upBtn"),
+  downBtn: document.getElementById("downBtn"),
+  leftBtn: document.getElementById("leftBtn"),
+  rightBtn: document.getElementById("rightBtn"),
+
+  playerName: document.getElementById("playerName"),
+  skinColor: document.getElementById("skinColor"),
+  hairColor: document.getElementById("hairColor"),
+  outfitColor: document.getElementById("outfitColor"),
+
+  startGame: document.getElementById("startGame"),
+
+  chapterLabel: document.getElementById("chapterLabel"),
+  cinematicText: document.getElementById("cinematicText"),
+  skipCinematic: document.getElementById("skipCinematic")
+};
+
+/* =========================
+   GAME STATE
+========================= */
 
 let playerName = "Unknown";
+
 let currentRoom = "hallway";
 
 let battery = 100;
-let flashlight = true;
-
 let fear = 0;
 let gameTime = 0;
 
+let flashlight = false;
+
 let inventory = [];
 let diary = [];
+let achievements = [];
+
+let endingReached = false;
+
+let player = {
+  x: 450,
+  y: 330,
+  speed: 2.7,
+  radius: 13
+};
+
+let colors = {
+  skin: "#d59b72",
+  hair: "#191919",
+  outfit: "#3d3d45"
+};
+
+/* =========================
+   STORY FLAGS
+========================= */
+
+let story = {
+  photograph: false,
+  clock: false,
+  radio: false,
+  code: false,
+  bedroom: false,
+  mirror: false,
+  basement: false,
+  letter: false,
+
+  finalDoor: false,
+  houseKey: false,
+
+  entityAwake: false,
+
+  secret: false,
+  secretSolved: false,
+
+  finalEvent: false,
+  truthFound: false,
+
+  escaped: false
+};
+
+/* =========================
+   ENTITY
+========================= */
+
+let entity = {
+  room: "hallway",
+  x: 700,
+  y: 250,
+
+  visible: false,
+  state: "hidden",
+
+  timer: 0,
+  aggression: 0
+};
+
+/* =========================
+   INPUT
+========================= */
 
 const keys = {};
 
-const player = {
-    x: 450,
-    y: 300,
-    speed: 2.5,
-    size: 13
+window.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+
+  if (e.key.toLowerCase() === "e") {
+    interact();
+  }
+
+  if (e.key.toLowerCase() === "f") {
+    toggleFlashlight();
+  }
+
+  if (e.key.toLowerCase() === "escape") {
+    togglePause();
+  }
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+/* =========================
+   MOBILE CONTROLS
+========================= */
+
+function holdButton(button, key) {
+  if (!button) return;
+
+  button.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    keys[key] = true;
+  });
+
+  button.addEventListener("pointerup", e => {
+    e.preventDefault();
+    keys[key] = false;
+  });
+
+  button.addEventListener("pointerleave", () => {
+    keys[key] = false;
+  });
+}
+
+holdButton(ui.upBtn, "w");
+holdButton(ui.downBtn, "s");
+holdButton(ui.leftBtn, "a");
+holdButton(ui.rightBtn, "d");
+
+ui.interactBtn?.addEventListener("click", interact);
+ui.flashlightBtn?.addEventListener("click", toggleFlashlight);
+
+/* =========================
+   RESIZE
+========================= */
+
+function resizeCanvas() {
+  canvas.width = canvas.clientWidth || 900;
+  canvas.height = canvas.clientHeight || 600;
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+/* =========================
+   ROOMS
+========================= */
+
+const rooms = {
+
+  hallway: {
+    floor: "#171719",
+    wall: "#29272b",
+    light: 0.65,
+    ambience: "hallway"
+  },
+
+  living: {
+    floor: "#201d1c",
+    wall: "#302b29",
+    light: 0.55,
+    ambience: "living"
+  },
+
+  bedroom: {
+    floor: "#18191e",
+    wall: "#272833",
+    light: 0.38,
+    ambience: "bedroom"
+  },
+
+  basement: {
+    floor: "#101113",
+    wall: "#1a1b1e",
+    light: 0.18,
+    ambience: "basement"
+  },
+
+  secret: {
+    floor: "#111216",
+    wall: "#202129",
+    light: 0.12,
+    ambience: "secret"
+  }
 };
 
-/* =========================================================
-   STORY
-========================================================= */
+/* =========================
+   SAVE SYSTEM
+========================= */
 
-const story = {
+const SAVE_KEY = "TLR_FORGOTTEN_SAVE_V6";
 
+function saveGame(showMessage = true) {
+
+  const saveData = {
+    version: 6,
+
+    playerName,
+    currentRoom,
+
+    battery,
+    fear,
+    gameTime,
+
+    flashlight,
+
+    inventory,
+    diary,
+    achievements,
+
+    player,
+    colors,
+
+    story,
+
+    entity
+  };
+
+  localStorage.setItem(
+    SAVE_KEY,
+    JSON.stringify(saveData)
+  );
+
+  if (showMessage) {
+    message("PROGRESS DISIMPAN...");
+  }
+}
+
+function loadGame() {
+
+  const raw = localStorage.getItem(SAVE_KEY);
+
+  if (!raw) {
+    message("BELUM ADA SAVE.");
+    return false;
+  }
+
+  try {
+
+    const data = JSON.parse(raw);
+
+    playerName = data.playerName ?? "Unknown";
+    currentRoom = data.currentRoom ?? "hallway";
+
+    battery = data.battery ?? 100;
+    fear = data.fear ?? 0;
+    gameTime = data.gameTime ?? 0;
+
+    flashlight = data.flashlight ?? false;
+
+    inventory = data.inventory ?? [];
+    diary = data.diary ?? [];
+    achievements = data.achievements ?? [];
+
+    player = {
+      ...player,
+      ...(data.player || {})
+    };
+
+    colors = {
+      ...colors,
+      ...(data.colors || {})
+    };
+
+    story = {
+      ...story,
+      ...(data.story || {})
+    };
+
+    entity = {
+      ...entity,
+      ...(data.entity || {})
+    };
+
+    updateUI();
+
+    showScreen("game");
+
+    message("SAVE DITEMUKAN.");
+
+    return true;
+
+  } catch (error) {
+
+    console.error(error);
+
+    message("SAVE RUSAK.");
+
+    return false;
+  }
+}
+
+function deleteSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+
+/* Autosave */
+
+setInterval(() => {
+
+  if (screens.game?.classList.contains("active")) {
+    saveGame(false);
+  }
+
+}, 15000);
+
+window.addEventListener("beforeunload", () => {
+  saveGame(false);
+});
+
+/* =========================
+   CINEMATIC
+========================= */
+
+const cinematicScenes = [
+  {
+    chapter: "CHAPTER I",
+    text: "23:41 PM."
+  },
+
+  {
+    chapter: "THE HOUSE",
+    text: "Rumah itu seharusnya sudah lama kosong."
+  },
+
+  {
+    chapter: "THE WARNING",
+    text: "Tapi malam ini... pintunya terbuka."
+  },
+
+  {
+    chapter: "THE LAST ROOM",
+    text: "Dan seseorang masih menunggumu."
+  }
+];
+
+let cinematicIndex = 0;
+
+function playCinematic() {
+
+  if (cinematicIndex >= cinematicScenes.length) {
+    showScreen("creator");
+    return;
+  }
+
+  const scene = cinematicScenes[cinematicIndex];
+
+  if (ui.chapterLabel) {
+    ui.chapterLabel.textContent = scene.chapter;
+  }
+
+  if (ui.cinematicText) {
+    ui.cinematicText.textContent = scene.text;
+  }
+
+  cinematicIndex++;
+
+  setTimeout(playCinematic, 2600);
+}
+
+ui.skipCinematic?.addEventListener("click", () => {
+  cinematicIndex = cinematicScenes.length;
+  showScreen("creator");
+});
+
+/* =========================
+   CHARACTER CREATOR
+========================= */
+
+function updatePreview() {
+
+  document.querySelectorAll(".preview-skin")
+    .forEach(el => el.style.background = colors.skin);
+
+  document.querySelectorAll(".preview-hair")
+    .forEach(el => el.style.background = colors.hair);
+
+  document.querySelectorAll(".preview-outfit")
+    .forEach(el => el.style.background = colors.outfit);
+}
+
+ui.skinColor?.addEventListener("input", e => {
+  colors.skin = e.target.value;
+  updatePreview();
+});
+
+ui.hairColor?.addEventListener("input", e => {
+  colors.hair = e.target.value;
+  updatePreview();
+});
+
+ui.outfitColor?.addEventListener("input", e => {
+  colors.outfit = e.target.value;
+  updatePreview();
+});
+
+ui.startGame?.addEventListener("click", () => {
+
+  playerName =
+    ui.playerName?.value.trim() || "Unknown";
+
+  deleteSave();
+
+  currentRoom = "hallway";
+
+  player.x = 450;
+  player.y = 330;
+
+  battery = 100;
+  fear = 0;
+  gameTime = 0;
+
+  inventory = [];
+  diary = [];
+  achievements = [];
+
+  story = {
     photograph: false,
     clock: false,
     radio: false,
     code: false,
-
     bedroom: false,
     mirror: false,
     basement: false,
     letter: false,
-
     finalDoor: false,
     houseKey: false,
-
     entityAwake: false,
-
     secret: false,
-
+    secretSolved: false,
+    finalEvent: false,
+    truthFound: false,
     escaped: false
+  };
 
-};
+  entity.visible = false;
+  entity.state = "hidden";
 
-/* =========================================================
-   ROOMS
-========================================================= */
+  showScreen("game");
 
-const rooms = {
+  cinematicIndex = 0;
 
-    hallway: {
-        name: "HALLWAY",
-        floor: "#302b27",
-        wall: "#171513",
-        light: .42,
-        ambience: "wood"
-    },
+  message(
+    "Cari tahu kenapa rumah ini belum benar-benar kosong."
+  );
 
-    living: {
-        name: "LIVING ROOM",
-        floor: "#34302d",
-        wall: "#191716",
-        light: .48,
-        ambience: "oldroom"
-    },
+  unlockAchievement("THE FIRST STEP");
+});
 
-    bedroom: {
-        name: "BEDROOM",
-        floor: "#282628",
-        wall: "#121112",
-        light: .27,
-        ambience: "silent"
-    },
+/* =========================
+   CONTINUE SAVE BUTTON
+========================= */
 
-    basement: {
-        name: "BASEMENT",
-        floor: "#171716",
-        wall: "#0c0c0b",
-        light: .12,
-        ambience: "basement"
-    }
+function createContinueButton() {
 
-};
+  if (document.getElementById("continueSave")) {
+    return;
+  }
 
-/* =========================================================
-   AUDIO
-========================================================= */
+  const button = document.createElement("button");
 
-let audioCtx = null;
-let masterGain = null;
+  button.id = "continueSave";
+  button.textContent = "CONTINUE";
 
-function initAudio() {
+  button.style.marginTop = "12px";
 
-    if (audioCtx) return;
+  button.onclick = () => {
+    loadGame();
+  };
 
-    audioCtx = new (
-        window.AudioContext ||
-        window.webkitAudioContext
-    )();
-
-    masterGain =
-        audioCtx.createGain();
-
-    masterGain.gain.value = .22;
-
-    masterGain.connect(
-        audioCtx.destination
-    );
-
-    startHouseHum();
+  ui.startGame?.parentElement?.appendChild(button);
 }
 
-function sound(
-    freq = 200,
-    duration = .2,
-    volume = .04,
-    type = "sine"
-) {
+createContinueButton();
 
-    if (!audioCtx) return;
-
-    const osc =
-        audioCtx.createOscillator();
-
-    const gain =
-        audioCtx.createGain();
-
-    osc.type = type;
-
-    osc.frequency.value =
-        freq;
-
-    gain.gain.setValueAtTime(
-        volume,
-        audioCtx.currentTime
-    );
-
-    gain.gain.exponentialRampToValueAtTime(
-        .001,
-        audioCtx.currentTime + duration
-    );
-
-    osc.connect(gain);
-    gain.connect(masterGain);
-
-    osc.start();
-
-    osc.stop(
-        audioCtx.currentTime +
-        duration
-    );
-}
-
-function startHouseHum() {
-
-    const osc =
-        audioCtx.createOscillator();
-
-    const gain =
-        audioCtx.createGain();
-
-    osc.type = "sine";
-    osc.frequency.value = 39;
-
-    gain.gain.value = .025;
-
-    osc.connect(gain);
-    gain.connect(masterGain);
-
-    osc.start();
-}
-
-function whisper() {
-
-    sound(
-        140,
-        .7,
-        .035,
-        "sawtooth"
-    );
-
-    setTimeout(() => {
-
-        sound(
-            72,
-            .5,
-            .025,
-            "triangle"
-        );
-
-    }, 300);
-}
-
-function footstep() {
-
-    sound(
-        currentRoom === "basement"
-            ? 58
-            : 82,
-        .06,
-        .028,
-        "triangle"
-    );
-}
-
-function doorSound() {
-
-    sound(
-        60,
-        .45,
-        .06,
-        "sawtooth"
-    );
-
-    setTimeout(() => {
-
-        sound(
-            42,
-            .3,
-            .035,
-            "triangle"
-        );
-
-    }, 180);
-}
-
-/* =========================================================
+/* =========================
    MESSAGE
-========================================================= */
+========================= */
 
-let messageTimeout;
+let messageTimer = null;
 
 function message(text) {
 
-    const el =
-        document.getElementById(
-            "storyMessage"
-        );
+  if (!ui.storyMessage) return;
 
-    if (!el) return;
+  ui.storyMessage.textContent = text;
 
-    el.textContent = text;
+  clearTimeout(messageTimer);
 
-    el.classList.add("show");
-
-    clearTimeout(
-        messageTimeout
-    );
-
-    messageTimeout =
-        setTimeout(() => {
-
-            el.classList.remove("show");
-
-        }, 2800);
+  messageTimer = setTimeout(() => {
+    ui.storyMessage.textContent = "";
+  }, 4000);
 }
 
-/* =========================================================
-   OBJECTIVE
-========================================================= */
-
-function objective(text) {
-
-    const el =
-        document.getElementById(
-            "objective"
-        );
-
-    if (el) {
-        el.textContent = text;
-    }
-}
-
-/* =========================================================
+/* =========================
    INVENTORY
-========================================================= */
+========================= */
 
 function addItem(item) {
 
-    if (
-        inventory.includes(item)
-    ) return;
-
+  if (!inventory.includes(item)) {
     inventory.push(item);
 
-    renderInventory();
+    message(`ITEM DITEMUKAN: ${item}`);
 
-    sound(
-        420,
-        .12,
-        .04
-    );
+    updateUI();
+    saveGame(false);
+  }
 }
 
-function renderInventory() {
-
-    const list =
-        document.getElementById(
-            "inventoryList"
-        );
-
-    if (!list) return;
-
-    list.innerHTML = "";
-
-    inventory.forEach(item => {
-
-        const el =
-            document.createElement("div");
-
-        el.textContent =
-            "◆ " + item;
-
-        list.appendChild(el);
-
-    });
+function hasItem(item) {
+  return inventory.includes(item);
 }
 
-/* =========================================================
+/* =========================
    DIARY
-========================================================= */
+========================= */
 
-function diaryEntry(title, text) {
+function addDiary(text) {
 
-    diary.push({
-        title,
-        text
-    });
+  if (!diary.includes(text)) {
 
-    renderDiary();
+    diary.push(text);
+
+    message("CATATAN BARU MASUK KE DIARY.");
+
+    updateUI();
+
+    saveGame(false);
+  }
 }
 
-function renderDiary() {
-
-    const list =
-        document.getElementById(
-            "diaryList"
-        );
-
-    if (!list) return;
-
-    list.innerHTML = "";
-
-    diary.forEach(entry => {
-
-        const article =
-            document.createElement("article");
-
-        article.innerHTML = `
-            <h3>${entry.title}</h3>
-            <p>${entry.text}</p>
-        `;
-
-        list.appendChild(article);
-
-    });
-}
-
-/* =========================================================
+/* =========================
    ACHIEVEMENTS
-========================================================= */
+========================= */
 
-const achievements = {};
+function unlockAchievement(name) {
 
-function achievement(
-    id,
-    title,
-    description
-) {
+  if (achievements.includes(name)) return;
 
-    if (achievements[id]) return;
+  achievements.push(name);
 
-    achievements[id] = true;
+  message(`ACHIEVEMENT: ${name}`);
 
-    showAchievement(
-        title,
-        description
-    );
+  saveGame(false);
 }
 
-function showAchievement(
-    title,
-    description
-) {
+/* =========================
+   UI UPDATE
+========================= */
 
-    let box =
-        document.getElementById(
-            "achievementBox"
-        );
+function updateUI() {
 
-    if (!box) {
+  if (ui.battery) {
+    ui.battery.textContent =
+      `BATTERY ${Math.max(0, Math.floor(battery))}%`;
+  }
 
-        box =
-            document.createElement("div");
+  if (ui.chapter) {
 
-        box.id =
-            "achievementBox";
+    const titles = {
+      hallway: "THE HALLWAY",
+      living: "THE LIVING ROOM",
+      bedroom: "THE BEDROOM",
+      basement: "THE BASEMENT",
+      secret: "THE FORGOTTEN ROOM"
+    };
 
-        Object.assign(
-            box.style,
-            {
-                position: "fixed",
-                right: "18px",
-                top: "18px",
-                width: "270px",
-                zIndex: "10000",
-                pointerEvents: "none"
-            }
-        );
+    ui.chapter.textContent =
+      titles[currentRoom] || currentRoom;
+  }
 
-        document.body.appendChild(box);
-    }
+  if (ui.inventoryList) {
 
-    const card =
-        document.createElement("div");
+    ui.inventoryList.innerHTML =
+      inventory.length
+        ? inventory.map(i => `<li>${i}</li>`).join("")
+        : "<li>Empty</li>";
+  }
 
-    Object.assign(
-        card.style,
-        {
-            background:
-                "rgba(8,8,8,.94)",
+  if (ui.diaryList) {
 
-            color: "#fff",
+    ui.diaryList.innerHTML =
+      diary.length
+        ? diary.map(i => `<li>${i}</li>`).join("")
+        : "<li>No notes</li>";
+  }
 
-            padding: "14px",
-
-            marginBottom: "10px",
-
-            border:
-                "1px solid rgba(255,255,255,.15)",
-
-            borderRadius: "6px",
-
-            fontFamily:
-                "Inter,sans-serif",
-
-            boxShadow:
-                "0 10px 30px rgba(0,0,0,.5)"
-        }
-    );
-
-    card.innerHTML = `
-        <small style="
-            opacity:.5;
-            letter-spacing:2px;
-        ">
-            ACHIEVEMENT
-        </small>
-
-        <div style="
-            font-family:Cinzel,serif;
-            margin-top:6px;
-            font-size:17px;
-        ">
-            ${title}
-        </div>
-
-        <div style="
-            opacity:.65;
-            font-size:12px;
-            margin-top:5px;
-        ">
-            ${description}
-        </div>
-    `;
-
-    box.appendChild(card);
-
-    sound(
-        620,
-        .12,
-        .045
-    );
-
-    setTimeout(() => {
-
-        card.remove();
-
-    }, 4000);
+  updateObjective();
 }
 
-/* =========================================================
-   FEAR
-========================================================= */
+/* =========================
+   OBJECTIVE
+========================= */
 
-function addFear(amount) {
+function updateObjective() {
 
-    fear += amount;
+  let objective =
+    "Explore the house.";
 
-    fear =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                fear
-            )
-        );
+  if (!story.photograph) {
+    objective = "Find something that explains the house.";
+  }
+  else if (!story.clock) {
+    objective = "Inspect the old clock.";
+  }
+  else if (!story.radio) {
+    objective = "Listen to the radio.";
+  }
+  else if (!story.code) {
+    objective = "Find the room code.";
+  }
+  else if (!story.bedroom) {
+    objective = "Open the bedroom.";
+  }
+  else if (!story.mirror) {
+    objective = "Inspect the mirror.";
+  }
+  else if (!story.basement) {
+    objective = "Find a way into the basement.";
+  }
+  else if (!story.letter) {
+    objective = "Search the basement.";
+  }
+  else if (!story.secret) {
+    objective = "There may be another room...";
+  }
+  else if (!story.secretSolved) {
+    objective = "Solve the forgotten room.";
+  }
+  else if (!story.finalDoor) {
+    objective = "Find the final door.";
+  }
+  else if (!story.finalEvent) {
+    objective = "Something has awakened.";
+  }
+
+  if (ui.objective) {
+    ui.objective.textContent = objective;
+  }
 }
 
-function calm(amount) {
+/* =========================
+   FLASHLIGHT
+========================= */
 
-    fear -= amount;
+function toggleFlashlight() {
 
-    fear =
-        Math.max(
-            0,
-            fear
-        );
+  if (battery <= 0) {
+
+    flashlight = false;
+
+    message("FLASHLIGHT KEHABISAN BATERAI.");
+
+    return;
+  }
+
+  flashlight = !flashlight;
+
+  sound(
+    flashlight ? 700 : 250,
+    0.05,
+    "square"
+  );
 }
 
-/* =========================================================
-   ENTITY
-========================================================= */
-
-const entity = {
-
-    x: 100,
-
-    y: 100,
-
-    room: "hallway",
-
-    visible: false,
-
-    state: "hidden",
-
-    timer: 0,
-
-    aggression: 0
-};
-
-function spawnEntity() {
-
-    entity.room =
-        currentRoom;
-
-    entity.x =
-        80 +
-        Math.random() *
-        (canvas.width - 160);
-
-    entity.y =
-        80 +
-        Math.random() *
-        (canvas.height - 160);
-
-    entity.visible =
-        true;
-
-    entity.state =
-        "watching";
-
-    entity.timer =
-        0;
-
-    story.entityAwake =
-        true;
-
-    whisper();
-
-    message(
-        "Ada sesuatu di dalam rumah ini."
-    );
-}
-
-function updateEntity() {
-
-    if (
-        !gameStarted ||
-        gameOver
-    ) return;
-
-    if (
-        !story.entityAwake
-    ) {
-
-        if (
-            gameTime > 1000
-        ) {
-
-            spawnEntity();
-
-        }
-
-        return;
-    }
-
-    if (
-        entity.room !==
-        currentRoom
-    ) {
-
-        entity.visible =
-            false;
-
-        return;
-    }
-
-    entity.timer++;
-
-    const dx =
-        player.x -
-        entity.x;
-
-    const dy =
-        player.y -
-        entity.y;
-
-    const dist =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-    if (
-        entity.state ===
-        "watching"
-    ) {
-
-        addFear(.006);
-
-        if (
-            entity.timer % 220 === 0
-        ) {
-
-            whisper();
-
-        }
-
-        if (
-            dist < 230
-        ) {
-
-            entity.state =
-                "near";
-
-            entity.timer =
-                0;
-        }
-    }
-
-    else if (
-        entity.state ===
-        "near"
-    ) {
-
-        addFear(.018);
-
-        if (
-            dist > 0
-        ) {
-
-            const speed =
-                .12 +
-                entity.aggression *
-                .01;
-
-            entity.x +=
-                dx / dist *
-                speed;
-
-            entity.y +=
-                dy / dist *
-                speed;
-        }
-
-        if (
-            entity.timer % 180 === 0
-        ) {
-
-            whisper();
-
-        }
-
-        if (
-            dist < 90
-        ) {
-
-            jumpscare();
-
-        }
-    }
-}
-
-function drawEntity() {
-
-    if (
-        !entity.visible ||
-        entity.room !==
-        currentRoom
-    ) return;
-
-    ctx.save();
-
-    const alpha =
-        entity.state ===
-        "watching"
-            ? .22
-            : .48;
-
-    ctx.globalAlpha =
-        alpha;
-
-    const aura =
-        ctx.createRadialGradient(
-            entity.x,
-            entity.y,
-            5,
-            entity.x,
-            entity.y,
-            120
-        );
-
-    aura.addColorStop(
-        0,
-        "rgba(0,0,0,.9)"
-    );
-
-    aura.addColorStop(
-        .5,
-        "rgba(0,0,0,.45)"
-    );
-
-    aura.addColorStop(
-        1,
-        "rgba(0,0,0,0)"
-    );
-
-    ctx.fillStyle =
-        aura;
-
-    ctx.beginPath();
-
-    ctx.ellipse(
-        entity.x,
-        entity.y,
-        50,
-        110,
-        0,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    ctx.fillStyle =
-        "#030303";
-
-    ctx.beginPath();
-
-    ctx.arc(
-        entity.x,
-        entity.y - 72,
-        25,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    ctx.fillStyle =
-        "rgba(230,230,230,.7)";
-
-    ctx.fillRect(
-        entity.x - 13,
-        entity.y - 78,
-        6,
-        3
-    );
-
-    ctx.fillRect(
-        entity.x + 7,
-        entity.y - 78,
-        6,
-        3
-    );
-
-    ctx.restore();
-}
-
-/* =========================================================
-   JUMPSCARE
-========================================================= */
-
-let scareLock = false;
-
-function jumpscare() {
-
-    if (scareLock) return;
-
-    scareLock = true;
-
-    addFear(30);
-
-    const flash =
-        document.createElement("div");
-
-    Object.assign(
-        flash.style,
-        {
-            position: "fixed",
-            inset: "0",
-            background:
-                "rgba(255,255,255,.18)",
-            zIndex: "9999",
-            pointerEvents: "none"
-        }
-    );
-
-    document.body.appendChild(
-        flash
-    );
-
-    sound(
-        55,
-        .8,
-        .14,
-        "sawtooth"
-    );
-
-    message(
-        "JANGAN MENATAPNYA."
-    );
-
-    document.body.style.transform =
-        "translate(4px,-3px)";
-
-    setTimeout(() => {
-
-        document.body.style.transform =
-            "translate(-5px,4px)";
-
-    }, 80);
-
-    setTimeout(() => {
-
-        document.body.style.transform =
-            "";
-
-        flash.remove();
-
-        entity.visible =
-            false;
-
-        entity.state =
-            "hidden";
-
-        entity.timer =
-            0;
-
-        scareLock =
-            false;
-
-        calm(25);
-
-        achievement(
-            "saw",
-            "I SAW YOU",
-            "Survive an encounter with the Entity."
-        );
-
-    }, 900);
-}
-
-/* =========================================================
-   PLAYER
-========================================================= */
-
-let lastStep =
-    0;
+/* =========================
+   MOVEMENT
+========================= */
 
 function updatePlayer() {
 
-    let dx = 0;
-    let dy = 0;
+  let dx = 0;
+  let dy = 0;
 
-    if (
-        keys.w ||
-        keys.arrowup
-    ) dy--;
+  if (keys["w"] || keys["arrowup"]) dy--;
+  if (keys["s"] || keys["arrowdown"]) dy++;
+  if (keys["a"] || keys["arrowleft"]) dx--;
+  if (keys["d"] || keys["arrowright"]) dx++;
 
-    if (
-        keys.s ||
-        keys.arrowdown
-    ) dy++;
+  if (dx !== 0 || dy !== 0) {
 
-    if (
-        keys.a ||
-        keys.arrowleft
-    ) dx--;
+    const length =
+      Math.sqrt(dx * dx + dy * dy);
 
-    if (
-        keys.d ||
-        keys.arrowright
-    ) dx++;
+    dx /= length;
+    dy /= length;
 
-    if (
-        dx !== 0 ||
-        dy !== 0
-    ) {
+    player.x += dx * player.speed;
+    player.y += dy * player.speed;
 
-        const len =
-            Math.sqrt(
-                dx * dx +
-                dy * dy
-            );
-
-        dx /= len;
-        dy /= len;
-
-        player.x +=
-            dx *
-            player.speed;
-
-        player.y +=
-            dy *
-            player.speed;
-
-        const now =
-            performance.now();
-
-        if (
-            now - lastStep >
-            300
-        ) {
-
-            footstep();
-
-            lastStep =
-                now;
-        }
+    if (Math.random() < 0.03) {
+      footstep();
     }
+  }
 
-    player.x =
-        Math.max(
-            20,
-            Math.min(
-                canvas.width - 20,
-                player.x
-            )
-        );
+  player.x =
+    Math.max(35, Math.min(canvas.width - 35, player.x));
 
-    player.y =
-        Math.max(
-            20,
-            Math.min(
-                canvas.height - 20,
-                player.y
-            )
-        );
-
-    checkExits();
+  player.y =
+    Math.max(35, Math.min(canvas.height - 35, player.y));
 }
 
-function drawPlayer() {
+/* =========================
+   ROOM TRANSITIONS
+========================= */
 
-    ctx.save();
+function checkRoomTransition() {
 
-    ctx.fillStyle =
-        "rgba(0,0,0,.45)";
+  if (currentRoom === "hallway") {
 
-    ctx.beginPath();
+    if (player.x > canvas.width - 40) {
 
-    ctx.ellipse(
-        player.x,
-        player.y + 12,
-        15,
-        6,
-        0,
-        0,
-        Math.PI * 2
-    );
+      if (story.radio) {
 
-    ctx.fill();
+        currentRoom = "living";
+        player.x = 60;
 
-    ctx.fillStyle =
-        "#ddd";
-
-    ctx.beginPath();
-
-    ctx.arc(
-        player.x,
-        player.y,
-        player.size,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-    ctx.restore();
-}
-
-/* =========================================================
-   ROOM TRANSITION
-========================================================= */
-
-function enterRoom(room) {
-
-    if (!rooms[room]) return;
-
-    currentRoom =
-        room;
-
-    entity.visible =
-        false;
-
-    entity.state =
-        "hidden";
-
-    player.x =
-        canvas.width / 2;
-
-    player.y =
-        canvas.height / 2;
-
-    sound(
-        45,
-        .3,
-        .035
-    );
-
-    updateRoomUI();
-
-    roomMessage();
-}
-
-function updateRoomUI() {
-
-    const chapter =
-        document.getElementById(
-            "chapter"
-        );
-
-    if (chapter) {
-
-        chapter.textContent =
-            rooms[
-                currentRoom
-            ].name;
-
+        doorSound();
+        message("Ruang tengah...");
+      }
+      else {
+        message("Pintu ini terasa terkunci.");
+        player.x = canvas.width - 45;
+      }
     }
-}
+  }
 
-function roomMessage() {
+  else if (currentRoom === "living") {
 
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
+    if (player.x < 40) {
 
-        message(
-            "Lorong itu terasa lebih panjang dari sebelumnya."
-        );
+      currentRoom = "hallway";
+      player.x = canvas.width - 60;
 
+      doorSound();
     }
 
     if (
-        currentRoom ===
-        "living"
+      player.y < 45 &&
+      story.code
     ) {
 
-        message(
-            "Ruang tamu masih menyimpan suara malam itu."
-        );
+      currentRoom = "bedroom";
+      player.y = canvas.height - 70;
 
+      story.bedroom = true;
+
+      unlockAchievement("THE BEDROOM");
+
+      doorSound();
+    }
+  }
+
+  else if (currentRoom === "bedroom") {
+
+    if (player.y > canvas.height - 40) {
+
+      currentRoom = "living";
+      player.y = 70;
+
+      doorSound();
     }
 
     if (
-        currentRoom ===
-        "bedroom"
+      player.x > canvas.width - 45 &&
+      story.letter
     ) {
 
-        message(
-            "Udara di kamar ini jauh lebih dingin."
-        );
+      currentRoom = "basement";
 
-        addFear(5);
+      player.x = 70;
 
+      story.basement = true;
+
+      unlockAchievement("BELOW");
+
+      doorSound();
+    }
+  }
+
+  else if (currentRoom === "basement") {
+
+    if (player.x < 40) {
+
+      currentRoom = "bedroom";
+
+      player.x = canvas.width - 70;
+
+      doorSound();
     }
 
     if (
-        currentRoom ===
-        "basement"
+      player.x > canvas.width - 60 &&
+      story.secretSolved
     ) {
 
-        message(
-            "Aku seharusnya tidak turun ke sini."
-        );
+      currentRoom = "secret";
 
-        addFear(10);
+      player.x = 70;
 
+      unlockAchievement("THE FORGOTTEN ROOM");
+
+      doorSound();
     }
+  }
+
+  else if (currentRoom === "secret") {
+
+    if (player.x < 40) {
+
+      currentRoom = "basement";
+
+      player.x = canvas.width - 70;
+
+      doorSound();
+    }
+  }
 }
 
-/* =========================================================
-   EXITS
-========================================================= */
-
-function checkExits() {
-
-    const w =
-        canvas.width;
-
-    const h =
-        canvas.height;
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        if (
-            player.x < 30
-        ) {
-
-            enterRoom(
-                "living"
-            );
-
-            player.x =
-                w - 55;
-
-        }
-
-        if (
-            player.y < 30 &&
-            player.x > 380 &&
-            player.x < 520
-        ) {
-
-            if (
-                story.bedroom
-            ) {
-
-                enterRoom(
-                    "bedroom"
-                );
-
-            }
-            else {
-
-                message(
-                    "Pintu kamar terkunci."
-                );
-
-                player.y =
-                    55;
-
-            }
-
-        }
-
-        if (
-            player.y >
-                h - 30 &&
-            player.x > 700
-        ) {
-
-            if (
-                story.basement
-            ) {
-
-                enterRoom(
-                    "basement"
-                );
-
-            }
-            else {
-
-                message(
-                    "Aku belum menemukan kuncinya."
-                );
-
-                player.y =
-                    h - 55;
-
-            }
-        }
-    }
-
-    else if (
-        currentRoom ===
-        "living"
-    ) {
-
-        if (
-            player.x >
-            w - 30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-            player.x =
-                55;
-
-        }
-
-    }
-
-    else if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        if (
-            player.y >
-            h - 30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-            player.y =
-                55;
-
-        }
-
-    }
-
-    else if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        if (
-            player.y < 30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-            player.y =
-                h - 55;
-
-        }
-
-    }
-}
-
-/* =========================================================
-   WORLD
-========================================================= */
-
-function drawWorld() {
-
-    const room =
-        rooms[
-            currentRoom
-        ];
-
-    ctx.fillStyle =
-        room.wall;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    drawWalls();
-
-    drawFloor();
-
-    drawFurniture();
-
-    drawDecorations();
-
-    drawDoors();
-
-    drawEntity();
-
-    drawPlayer();
-
-    drawLighting();
-
-    drawAtmosphere();
-}
-
-/* =========================================================
-   WALLS
-========================================================= */
-
-function drawWalls() {
-
-    ctx.fillStyle =
-        rooms[
-            currentRoom
-        ].wall;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        35
-    );
-
-    ctx.fillRect(
-        0,
-        canvas.height - 35,
-        canvas.width,
-        35
-    );
-
-    ctx.fillRect(
-        0,
-        0,
-        35,
-        canvas.height
-    );
-
-    ctx.fillRect(
-        canvas.width - 35,
-        0,
-        35,
-        canvas.height
-    );
-}
-
-/* =========================================================
-   FLOOR
-========================================================= */
-
-function drawFloor() {
-
-    const room =
-        rooms[
-            currentRoom
-        ];
-
-    ctx.fillStyle =
-        room.floor;
-
-    ctx.fillRect(
-        35,
-        35,
-        canvas.width - 70,
-        canvas.height - 70
-    );
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.018)";
-
-    ctx.lineWidth =
-        1;
-
-    const spacing =
-        currentRoom ===
-        "basement"
-            ? 28
-            : 48;
-
-    for (
-        let x = 35;
-        x < canvas.width - 35;
-        x += spacing
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            x,
-            35
-        );
-
-        ctx.lineTo(
-            x,
-            canvas.height - 35
-        );
-
-        ctx.stroke();
-    }
-
-    for (
-        let y = 35;
-        y < canvas.height - 35;
-        y += spacing
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            35,
-            y
-        );
-
-        ctx.lineTo(
-            canvas.width - 35,
-            y
-        );
-
-        ctx.stroke();
-    }
-}
-
-/* =========================================================
-   FURNITURE
-========================================================= */
-
-function drawFurniture() {
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        /* table */
-
-        shadowRect(
-            90,
-            120,
-            150,
-            70
-        );
-
-        woodRect(
-            90,
-            120,
-            150,
-            70
-        );
-
-        /* small drawer */
-
-        woodRect(
-            115,
-            140,
-            100,
-            38
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        /* sofa */
-
-        shadowRect(
-            100,
-            350,
-            300,
-            90
-        );
-
-        roundedRect(
-            100,
-            350,
-            300,
-            90,
-            "#403636"
-        );
-
-        roundedRect(
-            125,
-            325,
-            90,
-            60,
-            "#4a3e3d"
-        );
-
-        roundedRect(
-            285,
-            325,
-            90,
-            60,
-            "#4a3e3d"
-        );
-
-        /* coffee table */
-
-        woodRect(
-            440,
-            390,
-            150,
-            45
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        /* bed */
-
-        shadowRect(
-            100,
-            130,
-            290,
-            150
-        );
-
-        roundedRect(
-            100,
-            130,
-            290,
-            150,
-            "#3e3940"
-        );
-
-        roundedRect(
-            120,
-            150,
-            250,
-            110,
-            "#514b55"
-        );
-
-        /* pillow */
-
-        roundedRect(
-            140,
-            165,
-            90,
-            45,
-            "#706872"
-        );
-
-        /* wardrobe */
-
-        woodRect(
-            510,
-            90,
-            130,
-            230
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        /* shelves */
-
-        for (
-            let y = 100;
-            y < 390;
-            y += 100
-        ) {
-
-            woodRect(
-                80,
-                y,
-                300,
-                22
-            );
-
-        }
-
-        /* boxes */
-
-        woodRect(
-            500,
-            350,
-            130,
-            80
-        );
-
-        woodRect(
-            650,
-            390,
-            100,
-            60
-        );
-
-    }
-}
-
-/* =========================================================
-   DECORATIONS
-========================================================= */
-
-function drawDecorations() {
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        drawClock();
-
-        drawPhoto();
-
-        drawPainting(
-            560,
-            75,
-            130,
-            100
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        drawRadio();
-
-        drawPainting(
-            300,
-            70,
-            160,
-            120
-        );
-
-        drawLamp(
-            700,
-            160
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        drawMirror();
-
-        drawLamp(
-            700,
-            330
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        drawPipe();
-
-        drawBoxMark();
-
-    }
-}
-
-/* =========================================================
-   DRAW HELPERS
-========================================================= */
-
-function shadowRect(
-    x,
-    y,
-    w,
-    h
-) {
-
-    ctx.fillStyle =
-        "rgba(0,0,0,.38)";
-
-    ctx.fillRect(
-        x + 7,
-        y + 8,
-        w,
-        h
-    );
-}
-
-function woodRect(
-    x,
-    y,
-    w,
-    h
-) {
-
-    ctx.fillStyle =
-        "#3b2b23";
-
-    ctx.fillRect(
-        x,
-        y,
-        w,
-        h
-    );
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.035)";
-
-    ctx.strokeRect(
-        x,
-        y,
-        w,
-        h
-    );
-}
-
-function roundedRect(
-    x,
-    y,
-    w,
-    h,
-    color
-) {
-
-    ctx.fillStyle =
-        color;
-
-    ctx.beginPath();
-
-    ctx.roundRect(
-        x,
-        y,
-        w,
-        h,
-        10
-    );
-
-    ctx.fill();
-}
-
-function drawPainting(
-    x,
-    y,
-    w,
-    h
-) {
-
-    ctx.strokeStyle =
-        "#5b4435";
-
-    ctx.lineWidth =
-        8;
-
-    ctx.strokeRect(
-        x,
-        y,
-        w,
-        h
-    );
-
-    ctx.fillStyle =
-        "rgba(100,100,100,.09)";
-
-    ctx.fillRect(
-        x + 5,
-        y + 5,
-        w - 10,
-        h - 10
-    );
-}
-
-function drawPhoto() {
-
-    ctx.fillStyle =
-        "#bca77f";
-
-    ctx.fillRect(
-        145,
-        140,
-        50,
-        35
-    );
-
-    ctx.strokeStyle =
-        "#5b4635";
-
-    ctx.strokeRect(
-        140,
-        135,
-        60,
-        45
-    );
-}
-
-function drawClock() {
-
-    ctx.strokeStyle =
-        "#999";
-
-    ctx.lineWidth =
-        3;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        730,
-        120,
-        34,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.stroke();
-
-    ctx.fillStyle =
-        "#aaa";
-
-    ctx.font =
-        "11px serif";
-
-    ctx.fillText(
-        "03:17",
-        714,
-        124
-    );
-}
-
-function drawRadio() {
-
-    ctx.fillStyle =
-        "#151515";
-
-    ctx.fillRect(
-        600,
-        170,
-        110,
-        70
-    );
-
-    ctx.fillStyle =
-        "#777";
-
-    ctx.fillRect(
-        615,
-        185,
-        75,
-        28
-    );
-
-    ctx.strokeStyle =
-        "#555";
-
-    ctx.strokeRect(
-        610,
-        180,
-        85,
-        38
-    );
-}
-
-function drawMirror() {
-
-    ctx.strokeStyle =
-        "#756e6b";
-
-    ctx.lineWidth =
-        7;
-
-    ctx.strokeRect(
-        650,
-        90,
-        100,
-        190
-    );
-
-    ctx.fillStyle =
-        "rgba(150,160,170,.09)";
-
-    ctx.fillRect(
-        657,
-        97,
-        86,
-        176
-    );
-}
-
-function drawLamp(
-    x,
-    y
-) {
-
-    ctx.fillStyle =
-        "#40352b";
-
-    ctx.fillRect(
-        x,
-        y,
-        8,
-        80
-    );
-
-    ctx.beginPath();
-
-    ctx.arc(
-        x + 4,
-        y,
-        20,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-}
-
-function drawPipe() {
-
-    ctx.strokeStyle =
-        "#4c4b45";
-
-    ctx.lineWidth =
-        8;
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        450,
-        50
-    );
-
-    ctx.lineTo(
-        450,
-        350
-    );
-
-    ctx.lineTo(
-        650,
-        350
-    );
-
-    ctx.stroke();
-}
-
-function drawBoxMark() {
-
-    ctx.fillStyle =
-        "rgba(180,150,100,.15)";
-
-    ctx.font =
-        "20px serif";
-
-    ctx.fillText(
-        "0317",
-        520,
-        395
-    );
-}
-
-/* =========================================================
-   DOORS
-========================================================= */
-
-function drawDoors() {
-
-    ctx.fillStyle =
-        "#17120f";
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        ctx.fillRect(
-            400,
-            35,
-            100,
-            15
-        );
-
-        ctx.fillRect(
-            700,
-            canvas.height - 50,
-            120,
-            15
-        );
-
-        ctx.fillRect(
-            0,
-            220,
-            35,
-            150
-        );
-    }
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        ctx.fillRect(
-            canvas.width - 35,
-            220,
-            35,
-            150
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        ctx.fillRect(
-            400,
-            canvas.height - 35,
-            100,
-            15
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        ctx.fillRect(
-            700,
-            90,
-            100,
-            180
-        );
-
-    }
-}
-
-/* =========================================================
-   LIGHTING
-========================================================= */
-
-function drawLighting() {
-
-    const room =
-        rooms[
-            currentRoom
-        ];
-
-    ctx.fillStyle =
-        `rgba(
-            0,
-            0,
-            0,
-            ${1 - room.light}
-        )`;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    if (
-        !flashlight
-    ) {
-
-        ctx.fillStyle =
-            "rgba(0,0,0,.94)";
-
-        ctx.fillRect(
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-
-        return;
-    }
-
-    const radius =
-        currentRoom ===
-        "basement"
-            ? 180
-            : 260;
-
-    const gradient =
-        ctx.createRadialGradient(
-            player.x,
-            player.y,
-            10,
-            player.x,
-            player.y,
-            radius
-        );
-
-    gradient.addColorStop(
-        0,
-        "rgba(255,245,210,.34)"
-    );
-
-    gradient.addColorStop(
-        .25,
-        "rgba(255,245,210,.14)"
-    );
-
-    gradient.addColorStop(
-        .65,
-        "rgba(0,0,0,.42)"
-    );
-
-    gradient.addColorStop(
-        1,
-        "rgba(0,0,0,.92)"
-    );
-
-    ctx.fillStyle =
-        gradient;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-}
-
-/* =========================================================
-   ATMOSPHERE
-========================================================= */
-
-function drawAtmosphere() {
-
-    /* dust */
-
-    for (
-        let i = 0;
-        i < 25;
-        i++
-    ) {
-
-        const x =
-            (
-                i * 137 +
-                gameTime * .12
-            ) %
-            canvas.width;
-
-        const y =
-            (
-                i * 71 +
-                gameTime * .04
-            ) %
-            canvas.height;
-
-        ctx.fillStyle =
-            "rgba(255,255,255,.035)";
-
-        ctx.fillRect(
-            x,
-            y,
-            2,
-            2
-        );
-    }
-
-    /* fear vignette */
-
-    if (
-        fear > 20
-    ) {
-
-        const alpha =
-            (
-                fear - 20
-            ) / 180;
-
-        const gradient =
-            ctx.createRadialGradient(
-                canvas.width / 2,
-                canvas.height / 2,
-                80,
-                canvas.width / 2,
-                canvas.height / 2,
-                canvas.width / 1.2
-            );
-
-        gradient.addColorStop(
-            0,
-            "rgba(0,0,0,0)"
-        );
-
-        gradient.addColorStop(
-            1,
-            `rgba(0,0,0,${alpha})`
-        );
-
-        ctx.fillStyle =
-            gradient;
-
-        ctx.fillRect(
-            0,
-            0,
-            canvas.width,
-            canvas.height
-        );
-    }
-}
-
-/* =========================================================
+/* =========================
    INTERACTION
-========================================================= */
+========================= */
 
 function interact() {
 
-    if (
-        !gameStarted ||
-        gameOver
-    ) return;
+  const objects = getNearbyObject();
 
-    const x =
-        player.x;
+  if (!objects) return;
 
-    const y =
-        player.y;
-
-    /* =========================
-       HALLWAY
-    ========================= */
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        if (
-            distance(
-                x,
-                y,
-                170,
-                158
-            ) < 75
-        ) {
-
-            inspectPhoto();
-
-            return;
-        }
-
-        if (
-            distance(
-                x,
-                y,
-                730,
-                120
-            ) < 75
-        ) {
-
-            inspectClock();
-
-            return;
-        }
-
-        if (
-            y < 85 &&
-            x > 380 &&
-            x < 520
-        ) {
-
-            bedroomDoor();
-
-            return;
-        }
-
-        if (
-            y >
-            canvas.height - 100 &&
-            x > 680
-        ) {
-
-            basementDoor();
-
-            return;
-        }
-    }
-
-    /* =========================
-       LIVING
-    ========================= */
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        if (
-            distance(
-                x,
-                y,
-                650,
-                205
-            ) < 100
-        ) {
-
-            radio();
-
-            return;
-        }
-
-        if (
-            distance(
-                x,
-                y,
-                380,
-                130
-            ) < 110
-        ) {
-
-            painting();
-
-            return;
-        }
-    }
-
-    /* =========================
-       BEDROOM
-    ========================= */
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        if (
-            distance(
-                x,
-                y,
-                700,
-                180
-            ) < 100
-        ) {
-
-            mirror();
-
-            return;
-        }
-
-        if (
-            distance(
-                x,
-                y,
-                575,
-                200
-            ) < 130
-        ) {
-
-            wardrobe();
-
-            return;
-        }
-    }
-
-    /* =========================
-       BASEMENT
-    ========================= */
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        if (
-            distance(
-                x,
-                y,
-                560,
-                390
-            ) < 110
-        ) {
-
-            oldBox();
-
-            return;
-        }
-
-        if (
-            x > 680 &&
-            y > 80 &&
-            y < 300
-        ) {
-
-            finalDoor();
-
-            return;
-        }
-    }
+  objects.action();
 }
 
-/* =========================================================
-   PUZZLES
-========================================================= */
+/* =========================
+   OBJECT DETECTION
+========================= */
+
+function distance(a, b) {
+
+  return Math.sqrt(
+    (a.x - b.x) ** 2 +
+    (a.y - b.y) ** 2
+  );
+}
+
+function getNearbyObject() {
+
+  const x = player.x;
+  const y = player.y;
+
+  /* HALLWAY */
+
+  if (currentRoom === "hallway") {
+
+    if (
+      Math.abs(x - 180) < 70 &&
+      Math.abs(y - 210) < 70
+    ) {
+
+      return {
+        action: inspectPhoto
+      };
+    }
+
+    if (
+      Math.abs(x - 450) < 70 &&
+      Math.abs(y - 150) < 70
+    ) {
+
+      return {
+        action: inspectClock
+      };
+    }
+  }
+
+  /* LIVING */
+
+  if (currentRoom === "living") {
+
+    if (
+      Math.abs(x - 250) < 80 &&
+      Math.abs(y - 250) < 80
+    ) {
+
+      return {
+        action: inspectRadio
+      };
+    }
+
+    if (
+      Math.abs(x - 550) < 80 &&
+      Math.abs(y - 180) < 80
+    ) {
+
+      return {
+        action: inspectPainting
+      };
+    }
+  }
+
+  /* BEDROOM */
+
+  if (currentRoom === "bedroom") {
+
+    if (
+      Math.abs(x - 280) < 80 &&
+      Math.abs(y - 230) < 80
+    ) {
+
+      return {
+        action: inspectMirror
+      };
+    }
+
+    if (
+      Math.abs(x - 620) < 90 &&
+      Math.abs(y - 250) < 90
+    ) {
+
+      return {
+        action: inspectWardrobe
+      };
+    }
+  }
+
+  /* BASEMENT */
+
+  if (currentRoom === "basement") {
+
+    if (
+      Math.abs(x - 300) < 100 &&
+      Math.abs(y - 300) < 100
+    ) {
+
+      return {
+        action: inspectBox
+      };
+    }
+
+    if (
+      Math.abs(x - 720) < 100 &&
+      Math.abs(y - 300) < 100
+    ) {
+
+      return {
+        action: finalDoor
+      };
+    }
+
+    /* SECRET DOOR */
+
+    if (
+      Math.abs(x - 520) < 90 &&
+      Math.abs(y - 120) < 90
+    ) {
+
+      return {
+        action: secretDoor
+      };
+    }
+  }
+
+  /* SECRET ROOM */
+
+  if (currentRoom === "secret") {
+
+    if (
+      Math.abs(x - 450) < 110 &&
+      Math.abs(y - 230) < 110
+    ) {
+
+      return {
+        action: solveSecretRoom
+      };
+    }
+  }
+
+  return null;
+}
+
+/* =========================
+   INSPECT PANEL
+========================= */
+
+function inspect(title, text) {
+
+  if (!ui.inspectOverlay) return;
+
+  ui.inspectTitle.textContent = title;
+  ui.inspectText.textContent = text;
+
+  ui.inspectOverlay.classList.add("active");
+}
+
+ui.closeInspect?.addEventListener("click", () => {
+
+  ui.inspectOverlay?.classList.remove("active");
+
+});
+
+/* =========================
+   HALLWAY OBJECTS
+========================= */
 
 function inspectPhoto() {
 
-    if (
-        !story.photograph
-    ) {
+  if (!story.photograph) {
 
-        story.photograph =
-            true;
+    story.photograph = true;
 
-        addItem(
-            "Old Family Photograph"
-        );
+    addItem("Old Family Photograph");
 
-        diaryEntry(
-            "THE PHOTOGRAPH",
-            "Di balik keluarga itu ada sosok lain. Wajahnya dicoret, tetapi matanya masih terlihat."
-        );
+    addDiary(
+      "Ada seseorang berdiri di belakang keluarga itu."
+    );
 
-        achievement(
-            "photo",
-            "THE CURIOUS",
-            "Inspect the old family photograph."
-        );
-
-        objective(
-            "Periksa jam tua yang berhenti pada 03:17."
-        );
-
-        message(
-            "Ada sesuatu di belakang mereka."
-        );
-
-        return;
-    }
+    unlockAchievement("THE CURIOUS");
 
     inspect(
-        "FOTO",
-        "Tulisan di belakangnya: 'Ia selalu datang pada 03:17.'"
+      "OLD PHOTOGRAPH",
+      "Empat orang berdiri di depan rumah. Tapi ada bayangan kelima di belakang mereka."
     );
+
+  } else {
+
+    inspect(
+      "OLD PHOTOGRAPH",
+      "Semakin lama kamu melihatnya, semakin terasa seperti sosok itu sedang melihat balik."
+    );
+  }
 }
 
 function inspectClock() {
 
-    if (
-        !story.clock
-    ) {
+  if (!story.clock) {
 
-        story.clock =
-            true;
+    story.clock = true;
 
-        addItem(
-            "Clock Note"
-        );
+    addItem("Clock Note");
 
-        diaryEntry(
-            "03:17",
-            "Jam berhenti tepat pada pukul 03:17."
-        );
+    addDiary(
+      "Jam berhenti tepat pada 03:17."
+    );
 
-        achievement(
-            "clock",
-            "03:17",
-            "Discover the time hidden in the house."
-        );
-
-        objective(
-            "Cari radio tua di ruang tamu."
-        );
-
-        message(
-            "03:17... lagi."
-        );
-
-        return;
-    }
+    unlockAchievement("03:17");
 
     inspect(
-        "JAM",
-        "Jarumnya tidak pernah bergerak sejak malam itu."
+      "OLD CLOCK",
+      "Jarumnya berhenti di 03:17."
     );
-}
 
-function radio() {
-
-    if (
-        !story.clock
-    ) {
-
-        message(
-            "Radio tidak menyala."
-        );
-
-        return;
-    }
-
-    if (
-        !story.radio
-    ) {
-
-        story.radio =
-            true;
-
-        addItem(
-            "Radio Recording"
-        );
-
-        diaryEntry(
-            "THE RADIO",
-            "Suara dari radio mengulang empat angka: 0... 3... 1... 7."
-        );
-
-        achievement(
-            "radio",
-            "LISTEN",
-            "Listen to the mysterious radio."
-        );
-
-        sound(
-            90,
-            .5,
-            .06,
-            "sawtooth"
-        );
-
-        setTimeout(
-            whisper,
-            700
-        );
-
-        objective(
-            "Cari tempat yang menggunakan kode 0317."
-        );
-
-        message(
-            "0... 3... 1... 7..."
-        );
-
-        return;
-    }
+  } else {
 
     inspect(
-        "RADIO",
-        "Hanya suara statis yang tersisa."
+      "03:17",
+      "Jarum jam tidak bergerak."
     );
+  }
 }
 
-function painting() {
+/* =========================
+   LIVING ROOM
+========================= */
 
-    if (
-        story.radio &&
-        !story.code
-    ) {
+function inspectRadio() {
 
-        story.code =
-            true;
+  if (!story.radio) {
 
-        addItem(
-            "Code 0317"
-        );
+    story.radio = true;
 
-        objective(
-            "Gunakan kode 0317 untuk membuka kamar."
-        );
+    addItem("Radio Recording");
 
-        message(
-            "Kode itu cocok dengan sesuatu."
-        );
+    addDiary(
+      "Radio: 0... 3... 1... 7..."
+    );
 
-        return;
-    }
+    unlockAchievement("LISTEN");
 
     inspect(
-        "LUKISAN",
-        "Tatapan pada lukisan terasa berbeda setiap kali aku melihatnya."
+      "OLD RADIO",
+      "Suara statis berubah menjadi bisikan: 0... 3... 1... 7..."
     );
+
+  } else {
+
+    inspect(
+      "RADIO",
+      "Sekarang radio hanya mengeluarkan suara statis."
+    );
+  }
 }
 
-function bedroomDoor() {
+function inspectPainting() {
 
-    if (
-        story.bedroom
-    ) {
+  if (
+    story.radio &&
+    story.clock
+  ) {
 
-        enterRoom(
-            "bedroom"
-        );
+    story.code = true;
 
-        return;
+    addItem("Room Code: 0317");
+
+    addDiary(
+      "Kode yang ditemukan: 0317."
+    );
+
+    inspect(
+      "PAINTING",
+      "Di balik lukisan tertulis angka: 0317."
+    );
+
+  } else {
+
+    inspect(
+      "PAINTING",
+      "Lukisan rumah tua. Ada sesuatu yang terasa familiar."
+    );
+  }
+}
+
+/* =========================
+   BEDROOM
+========================= */
+
+function inspectMirror() {
+
+  if (!story.mirror) {
+
+    story.mirror = true;
+
+    addDiary(
+      "Cermin tidak memantulkan ruangan dengan benar."
+    );
+
+    unlockAchievement("REFLECTION");
+
+    inspect(
+      "MIRROR",
+      "Untuk sesaat, pantulanmu terlambat bergerak."
+    );
+
+  } else {
+
+    inspect(
+      "MIRROR",
+      "Pantulan itu sekarang bergerak sedikit berbeda."
+    );
+  }
+}
+
+function inspectWardrobe() {
+
+  if (!hasItem("Basement Key")) {
+
+    addItem("Basement Key");
+
+    inspect(
+      "WARDROBE",
+      "Sebuah kunci tua tersembunyi di balik pakaian."
+    );
+
+  } else {
+
+    inspect(
+      "WARDROBE",
+      "Kosong."
+    );
+  }
+}
+
+/* =========================
+   BASEMENT
+========================= */
+
+function inspectBox() {
+
+  if (!story.letter) {
+
+    story.letter = true;
+
+    addItem("Old Letter");
+
+    addDiary(
+      "Surat itu menyebut sebuah ruangan yang tidak pernah ada di denah rumah."
+    );
+
+    inspect(
+      "OLD BOX",
+      "Di dalamnya ada surat lama. Kalimat terakhirnya: 'Jangan pernah membuka ruangan yang dilupakan.'"
+    );
+
+  } else {
+
+    inspect(
+      "OLD BOX",
+      "Tidak ada apa-apa lagi."
+    );
+  }
+}
+
+/* =========================
+   SECRET ROOM
+========================= */
+
+function secretDoor() {
+
+  if (
+    story.letter &&
+    story.mirror &&
+    story.radio
+  ) {
+
+    inspect(
+      "HIDDEN DOOR",
+      "Pintunya tidak terlihat seperti pintu biasa. Ada simbol 03:17."
+    );
+
+    if (!story.secret) {
+
+      story.secret = true;
+
+      addDiary(
+        "Aku menemukan pintu yang tidak ada di denah."
+      );
+
+      message(
+        "PINTU TERSEMBUNYI TERBUKA."
+      );
     }
 
-    if (
-        story.code
-    ) {
-
-        story.bedroom =
-            true;
-
-        addItem(
-            "Bedroom Key"
-        );
-
-        achievement(
-            "room",
-            "THE LAST ROOM",
-            "Enter the forbidden bedroom."
-        );
-
-        objective(
-            "Cari tahu kenapa kamar ini dikunci."
-        );
-
-        message(
-            "Pintunya terbuka..."
-        );
-
-        return;
-    }
-
-    doorSound();
+  } else {
 
     message(
-        "Terkunci."
+      "Ada sesuatu yang belum kamu pahami."
     );
+  }
 }
 
-function mirror() {
+/* =========================
+   SECRET ROOM PUZZLE
+========================= */
 
-    if (
-        !story.mirror
-    ) {
+function solveSecretRoom() {
 
-        story.mirror =
-            true;
-
-        diaryEntry(
-            "THE MIRROR",
-            "Pantulan di cermin bergerak sedikit terlambat."
-        );
-
-        objective(
-            "Periksa lemari tua."
-        );
-
-        addFear(
-            12
-        );
-
-        message(
-            "Itu bukan pantulanku."
-        );
-
-        return;
-    }
+  if (story.secretSolved) {
 
     inspect(
-        "CERMIN",
-        "Sekarang pantulannya kembali normal."
+      "THE FORGOTTEN ROOM",
+      "Dinding penuh foto. Semua foto memiliki wajah yang sama."
     );
-}
 
-function wardrobe() {
+    return;
+  }
 
-    if (
-        story.mirror &&
-        !story.basement
-    ) {
+  const required = [
+    story.photograph,
+    story.clock,
+    story.radio,
+    story.mirror,
+    story.letter
+  ];
 
-        story.basement =
-            true;
+  if (required.every(Boolean)) {
 
-        addItem(
-            "Basement Key"
-        );
+    story.secretSolved = true;
+    story.truthFound = true;
 
-        diaryEntry(
-            "THE KEY",
-            "Sebuah kunci ditemukan di balik pakaian lama."
-        );
+    addItem("Truth Fragment");
 
-        objective(
-            "Turun ke basement."
-        );
+    addDiary(
+      "Rumah ini bukan tempat Entity tinggal. Rumah ini adalah tempat ia mengingat."
+    );
 
-        message(
-            "Kunci basement."
-        );
-
-        return;
-    }
+    unlockAchievement("THE TRUTH");
 
     inspect(
-        "LEMARI",
-        "Bau kayu tua dan debu."
+      "THE FORGOTTEN ROOM",
+      "Kamu menemukan dinding penuh foto. Di tengahnya ada satu foto kosong dengan namamu."
     );
-}
 
-function basementDoor() {
+    saveGame(false);
 
-    if (
-        story.basement
-    ) {
-
-        enterRoom(
-            "basement"
-        );
-
-        achievement(
-            "basement",
-            "BELOW",
-            "Descend beneath the house."
-        );
-
-        objective(
-            "Temukan apa yang sebenarnya disembunyikan."
-        );
-
-        return;
-    }
-
-    message(
-        "Aku belum punya kuncinya."
-    );
-}
-
-function oldBox() {
-
-    if (
-        !story.letter
-    ) {
-
-        story.letter =
-            true;
-
-        addItem(
-            "Old Letter"
-        );
-
-        diaryEntry(
-            "THE LETTER",
-            "Surat itu menjelaskan bahwa rumah ini dibangun untuk mengurung sesuatu."
-        );
-
-        objective(
-            "Cari pintu terakhir."
-        );
-
-        addFear(
-            15
-        );
-
-        message(
-            "Rumah ini... adalah penjara."
-        );
-
-        return;
-    }
+  } else {
 
     inspect(
-        "KOTAK",
-        "Tidak ada apa-apa lagi."
+      "THE FORGOTTEN ROOM",
+      "Ruangan ini terasa belum lengkap. Masih ada sesuatu yang belum kamu temukan."
     );
+  }
 }
+
+/* =========================
+   FINAL DOOR
+========================= */
 
 function finalDoor() {
 
-    if (
-        !story.letter
-    ) {
+  if (!story.finalDoor) {
 
-        message(
-            "Aku belum tahu apa yang ada di baliknya."
-        );
+    if (!hasItem("House Key")) {
 
-        return;
+      story.finalDoor = true;
+
+      addItem("House Key");
+
+      story.entityAwake = true;
+
+      entity.visible = true;
+      entity.state = "watching";
+
+      unlockAchievement("THE LAST ROOM");
+
+      message(
+        "Kamu menemukan kunci rumah. Sesuatu terbangun."
+      );
+
+      triggerFinalEvent();
+
     }
 
-    if (
-        !story.finalDoor
-    ) {
+    return;
+  }
 
-        story.finalDoor =
-            true;
+  if (story.finalEvent) {
 
-        story.houseKey =
-            true;
+    chooseEnding();
 
-        addItem(
-            "House Key"
-        );
+  } else {
 
-        story.entityAwake =
-            true;
-
-        entity.room =
-            currentRoom;
-
-        entity.x =
-            180;
-
-        entity.y =
-            120;
-
-        entity.visible =
-            true;
-
-        entity.state =
-            "watching";
-
-        objective(
-            "Temukan jalan keluar."
-        );
-
-        message(
-            "Rumah ini bukan rumah. Ini penjara."
-        );
-
-        diaryEntry(
-            "THE TRUTH",
-            "Mereka tidak tinggal di rumah ini. Mereka mengurung sesuatu di sini."
-        );
-
-        return;
-    }
-
-    if (
-        story.houseKey
-    ) {
-
-        ending();
-    }
+    triggerFinalEvent();
+  }
 }
 
-/* =========================================================
-   ENDING SYSTEM
-========================================================= */
+/* =========================
+   FINAL ENTITY EVENT
+========================= */
 
-function ending() {
+let finalEventTimer = null;
 
-    gameOver =
-        true;
+function triggerFinalEvent() {
 
-    story.escaped =
-        true;
+  if (story.finalEvent) return;
 
-    let endingType =
-        "ESCAPE";
+  story.finalEvent = true;
 
-    if (
-        story.secret
-    ) {
+  entity.visible = true;
+  entity.state = "near";
+  entity.aggression = 100;
 
-        endingType =
-            "TRUE ENDING";
+  message(
+    "JANGAN BERHENTI BERJALAN."
+  );
 
+  addDiary(
+    "Entity akhirnya memperlihatkan dirinya."
+  );
+
+  unlockAchievement("I SAW YOU");
+
+  let countdown = 15;
+
+  clearInterval(finalEventTimer);
+
+  finalEventTimer = setInterval(() => {
+
+    countdown--;
+
+    if (countdown <= 0) {
+
+      clearInterval(finalEventTimer);
+
+      if (
+        currentRoom === "basement" &&
+        distance(player, entity) < 220
+      ) {
+
+        ending("FORGOTTEN");
+
+      } else {
+
+        message(
+          "Pintu terakhir terbuka. SEKARANG!"
+        );
+      }
+
+      return;
     }
-    else if (
-        story.letter &&
-        story.finalDoor
-    ) {
 
-        endingType =
-            "THE TRUTH";
-
+    if (Math.random() < 0.5) {
+      footstep();
     }
 
-    showEnding(
-        endingType
-    );
+  }, 1000);
 }
 
-function showEnding(type) {
+/* =========================
+   ENDINGS
+========================= */
 
-    const overlay =
-        document.createElement("div");
+function chooseEnding() {
+
+  if (endingReached) return;
+
+  if (
+    story.secretSolved &&
+    story.truthFound
+  ) {
+
+    ending("TRUE");
+
+    return;
+  }
+
+  if (
+    story.truthFound
+  ) {
+
+    ending("TRUTH");
+
+    return;
+  }
+
+  ending("ESCAPE");
+}
+
+function ending(type) {
+
+  if (endingReached) return;
+
+  endingReached = true;
+
+  story.escaped = true;
+
+  let title = "";
+  let text = "";
+
+  if (type === "ESCAPE") {
+
+    title = "ENDING — ESCAPE";
+
+    text =
+      "Kamu berhasil keluar dari rumah itu. Tapi ketika menoleh, jendelanya masih menyala.";
+
+    unlockAchievement("ESCAPED");
+  }
+
+  else if (type === "TRUTH") {
+
+    title = "ENDING — THE TRUTH";
+
+    text =
+      "Kamu mengetahui sebagian kebenaran. Rumah itu menyimpan ingatan yang seharusnya sudah hilang.";
+
+    unlockAchievement("THE TRUTH");
+  }
+
+  else if (type === "TRUE") {
+
+    title = "TRUE ENDING — FORGOTTEN";
+
+    text =
+      "Kamu tidak hanya keluar. Kamu memahami kenapa rumah itu mengingat namamu.";
+
+    unlockAchievement("TRUE ENDING");
+  }
+
+  else {
+
+    title = "ENDING — FORGOTTEN";
+
+    text =
+      "Lampu rumah kembali menyala. Pintu tertutup. Tidak ada yang tahu kamu pernah berada di sana.";
+
+    unlockAchievement("FORGOTTEN");
+  }
+
+  showEndingOverlay(title, text);
+
+  saveGame(false);
+}
+
+/* =========================
+   ENDING OVERLAY
+========================= */
+
+function showEndingOverlay(title, text) {
+
+  let overlay =
+    document.getElementById("endingOverlay");
+
+  if (!overlay) {
+
+    overlay = document.createElement("div");
+
+    overlay.id = "endingOverlay";
 
     Object.assign(
-        overlay.style,
-        {
-            position: "fixed",
-            inset: "0",
-            background:
-                "rgba(0,0,0,.95)",
-            zIndex: "20000",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-            color: "#fff",
-            padding: "25px"
-        }
+      overlay.style,
+      {
+        position: "fixed",
+        inset: "0",
+        background: "rgba(0,0,0,.94)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "column",
+        padding: "30px",
+        textAlign: "center",
+        zIndex: "99999",
+        color: "white",
+        fontFamily: "sans-serif"
+      }
     );
 
-    let description = "";
+    document.body.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `
+    <div style="
+      font-size:12px;
+      letter-spacing:5px;
+      opacity:.55;
+      margin-bottom:20px;
+    ">
+      THE LAST ROOM
+    </div>
+
+    <h1 style="
+      font-size:clamp(28px,7vw,60px);
+      margin:0 0 20px;
+      letter-spacing:3px;
+    ">
+      ${title}
+    </h1>
+
+    <p style="
+      max-width:600px;
+      line-height:1.8;
+      opacity:.8;
+    ">
+      ${text}
+    </p>
+
+    <button
+      id="endingRestart"
+      style="
+        margin-top:30px;
+        padding:14px 25px;
+        background:transparent;
+        color:white;
+        border:1px solid rgba(255,255,255,.4);
+        cursor:pointer;
+      "
+    >
+      RETURN TO MENU
+    </button>
+  `;
+
+  overlay.style.display = "flex";
+
+  document
+    .getElementById("endingRestart")
+    ?.addEventListener("click", () => {
+
+      overlay.remove();
+
+      endingReached = false;
+
+      showScreen("creator");
+    });
+}
+
+/* =========================
+   ENTITY AI
+========================= */
+
+function updateEntity() {
+
+  if (!story.entityAwake) return;
+
+  entity.timer++;
+
+  if (
+    !entity.visible &&
+    gameTime > 1000
+  ) {
+
+    entity.visible = true;
+    entity.state = "watching";
+
+    entity.room = currentRoom;
+
+    entity.x =
+      Math.random() * canvas.width;
+
+    entity.y =
+      Math.random() * canvas.height;
+  }
+
+  if (
+    entity.visible &&
+    entity.room === currentRoom
+  ) {
+
+    const d =
+      distance(player, entity);
+
+    if (d < 300) {
+
+      entity.state = "near";
+
+      fear += 0.04;
+
+      if (Math.random() < 0.02) {
+        whisper();
+      }
+
+    } else {
+
+      entity.state = "watching";
+    }
 
     if (
-        type ===
-        "ESCAPE"
+      entity.state === "near" &&
+      d > 90
     ) {
 
-        description =
-            "Kau berhasil keluar dari rumah. Tapi dari jendela lantai atas, sesuatu masih memperhatikanmu.";
+      const angle =
+        Math.atan2(
+          player.y - entity.y,
+          player.x - entity.x
+        );
 
+      entity.x +=
+        Math.cos(angle) * 0.55;
+
+      entity.y +=
+        Math.sin(angle) * 0.55;
     }
 
-    else if (
-        type ===
-        "THE TRUTH"
+    if (
+      d < 85 &&
+      !story.finalEvent
     ) {
 
-        description =
-            "Kau menemukan kebenaran tentang rumah itu. Namun satu pertanyaan masih belum terjawab: siapa yang membangun penjara tersebut?";
-
+      jumpscare();
     }
+  }
+}
 
-    else {
+/* =========================
+   JUMPSCARE
+========================= */
 
-        description =
-            "Kau menemukan rahasia terdalam rumah. Entity tidak pernah benar-benar dikurung. Ia hanya menunggu seseorang membuka pintunya.";
+function jumpscare() {
 
+  entity.visible = false;
+
+  fear += 18;
+
+  const flash =
+    document.createElement("div");
+
+  Object.assign(
+    flash.style,
+    {
+      position: "fixed",
+      inset: "0",
+      background: "white",
+      zIndex: "99998",
+      opacity: "1",
+      transition: "opacity .7s"
     }
+  );
 
-    overlay.innerHTML = `
-        <div style="max-width:650px">
+  document.body.appendChild(flash);
 
-            <div style="
-                font-size:11px;
-                letter-spacing:5px;
-                opacity:.45;
-                margin-bottom:25px;
-            ">
-                ENDING
-            </div>
+  sound(80, .5, "sawtooth");
 
-            <h1 style="
-                font-family:Cinzel,serif;
-                font-size:42px;
-                letter-spacing:5px;
-                margin-bottom:25px;
-            ">
-                ${type}
-            </h1>
+  setTimeout(() => {
+    flash.style.opacity = "0";
+  }, 100);
 
-            <p style="
-                font-family:Inter,sans-serif;
-                line-height:1.8;
-                opacity:.72;
-            ">
-                ${description}
-            </p>
+  setTimeout(() => {
+    flash.remove();
+  }, 800);
 
-            <button
-                id="restartGame"
-                style="
-                    margin-top:35px;
-                    padding:12px 25px;
-                    background:transparent;
-                    color:white;
-                    border:1px solid rgba(255,255,255,.3);
-                    cursor:pointer;
-                "
-            >
-                PLAY AGAIN
-            </button>
-
-        </div>
-    `;
-
-    document.body.appendChild(
-        overlay
-    );
-
-    achievement(
-        "ending",
-        type,
-        "Complete an ending."
-    );
-
-    document
-        .getElementById(
-            "restartGame"
-        )
-        ?.addEventListener(
-            "click",
-            () => {
-
-                location.reload();
-
-            }
-        );
+  message(
+    "JANGAN MENATAPNYA."
+  );
 }
 
-/* =========================================================
-   INSPECT
-========================================================= */
-
-function inspect(
-    title,
-    text
-) {
-
-    const overlay =
-        document.getElementById(
-            "inspectOverlay"
-        );
-
-    const titleEl =
-        document.getElementById(
-            "inspectTitle"
-        );
-
-    const textEl =
-        document.getElementById(
-            "inspectText"
-        );
-
-    if (!overlay) return;
-
-    if (titleEl)
-        titleEl.textContent =
-            title;
-
-    if (textEl)
-        textEl.textContent =
-            text;
-
-    overlay.classList.add(
-        "active"
-    );
-}
-
-document
-    .getElementById(
-        "closeInspect"
-    )
-    ?.addEventListener(
-        "click",
-        () => {
-
-            document
-                .getElementById(
-                    "inspectOverlay"
-                )
-                ?.classList.remove(
-                    "active"
-                );
-
-        }
-    );
-
-/* =========================================================
-   FLASHLIGHT
-========================================================= */
-
-function toggleFlashlight() {
-
-    if (
-        battery <= 0
-    ) {
-
-        flashlight =
-            false;
-
-        message(
-            "Baterainya habis."
-        );
-
-        return;
-    }
-
-    flashlight =
-        !flashlight;
-
-    sound(
-        flashlight
-            ? 180
-            : 75,
-        .12,
-        .035
-    );
-}
-
-document
-    .getElementById(
-        "flashlightBtn"
-    )
-    ?.addEventListener(
-        "click",
-        toggleFlashlight
-    );
-
-/* =========================================================
-   BATTERY
-========================================================= */
-
-function updateBattery() {
-
-    if (
-        !flashlight
-    ) return;
-
-    battery -=
-        currentRoom ===
-        "basement"
-            ? .012
-            : .007;
-
-    if (
-        battery <= 0
-    ) {
-
-        battery =
-            0;
-
-        flashlight =
-            false;
-
-        message(
-            "Senterku mati."
-        );
-
-        addFear(
-            15
-        );
-    }
-
-    const el =
-        document.getElementById(
-            "battery"
-        );
-
-    if (el) {
-
-        el.textContent =
-            Math.floor(
-                battery
-            ) + "%";
-
-    }
-}
-
-/* =========================================================
-   MOBILE
-========================================================= */
-
-function holdButton(
-    id,
-    key
-) {
-
-    const button =
-        document.getElementById(
-            id
-        );
-
-    if (!button) return;
-
-    button.addEventListener(
-        "touchstart",
-        e => {
-
-            e.preventDefault();
-
-            keys[key] =
-                true;
-
-        },
-        {
-            passive:false
-        }
-    );
-
-    button.addEventListener(
-        "touchend",
-        e => {
-
-            e.preventDefault();
-
-            keys[key] =
-                false;
-
-        },
-        {
-            passive:false
-        }
-    );
-}
-
-holdButton(
-    "upBtn",
-    "arrowup"
-);
-
-holdButton(
-    "downBtn",
-    "arrowdown"
-);
-
-holdButton(
-    "leftBtn",
-    "arrowleft"
-);
-
-holdButton(
-    "rightBtn",
-    "arrowright"
-);
-
-document
-    .getElementById(
-        "interactBtn"
-    )
-    ?.addEventListener(
-        "click",
-        interact
-    );
-
-/* =========================================================
-   KEYBOARD
-========================================================= */
-
-window.addEventListener(
-    "keydown",
-    e => {
-
-        keys[
-            e.key.toLowerCase()
-        ] = true;
-
-        if (
-            e.key.toLowerCase() ===
-            "e"
-        ) {
-
-            interact();
-
-        }
-
-        if (
-            e.key.toLowerCase() ===
-            "f"
-        ) {
-
-            toggleFlashlight();
-
-        }
-
-    }
-);
-
-window.addEventListener(
-    "keyup",
-    e => {
-
-        keys[
-            e.key.toLowerCase()
-        ] = false;
-
-    }
-);
-
-/* =========================================================
-   CHARACTER CREATOR
-========================================================= */
-
-document
-    .getElementById(
-        "startGame"
-    )
-    ?.addEventListener(
-        "click",
-        () => {
-
-            playerName =
-                document
-                    .getElementById(
-                        "playerName"
-                    )
-                    ?.value
-                    .trim() ||
-                "Unknown";
-
-            initAudio();
-
-            if (
-                audioCtx.state ===
-                "suspended"
-            ) {
-
-                audioCtx.resume();
-
-            }
-
-            startGame();
-
-        }
-    );
-
-/* =========================================================
-   START
-========================================================= */
-
-function startGame() {
-
-    showScreen(
-        "game"
-    );
-
-    gameStarted =
-        true;
-
-    gameOver =
-        false;
-
-    currentRoom =
-        "hallway";
-
-    player.x =
-        canvas.width / 2;
-
-    player.y =
-        canvas.height / 2;
-
-    battery =
-        100;
-
-    flashlight =
-        true;
-
-    fear =
-        0;
-
-    gameTime =
-        0;
-
-    inventory =
-        [];
-
-    diary =
-        [];
-
-    Object.keys(story)
-        .forEach(key => {
-
-            story[key] =
-                false;
-
-        });
-
-    entity.visible =
-        false;
-
-    entity.state =
-        "hidden";
-
-    diaryEntry(
-        "FIRST NIGHT",
-        "Aku kembali ke rumah lama keluarga. Tidak ada yang tinggal di sini sejak malam itu."
-    );
-
-    objective(
-        "Cari tahu apa yang terjadi di rumah ini."
-    );
-
-    message(
-        `Selamat datang kembali, ${playerName}.`
-    );
-
-    updateRoomUI();
-
-    renderInventory();
-
-    renderDiary();
-}
-
-/* =========================================================
-   CHARACTER PREVIEW
-========================================================= */
-
-function updatePreview() {
-
-    const skin =
-        document.getElementById(
-            "skinColor"
-        )?.value ||
-        "#c98b68";
-
-    const hair =
-        document.getElementById(
-            "hairColor"
-        )?.value ||
-        "#171717";
-
-    const outfit =
-        document.getElementById(
-            "outfitColor"
-        )?.value ||
-        "#202020";
-
-    const s =
-        document.querySelector(
-            ".preview-skin"
-        );
-
-    const h =
-        document.querySelector(
-            ".preview-hair"
-        );
-
-    const o =
-        document.querySelector(
-            ".preview-outfit"
-        );
-
-    if (s)
-        s.style.background =
-            skin;
-
-    if (h)
-        h.style.background =
-            hair;
-
-    if (o)
-        o.style.background =
-            outfit;
-}
-
-[
-    "skinColor",
-    "hairColor",
-    "outfitColor"
-].forEach(id => {
-
-    document
-        .getElementById(id)
-        ?.addEventListener(
-            "input",
-            updatePreview
-        );
-
-});
-
-updatePreview();
-
-/* =========================================================
-   CINEMATIC
-========================================================= */
-
-const scenes = [
-
-    [
-        "CHAPTER I",
-        "23:41 PM."
-    ],
-
-    [
-        "THE RETURN",
-        "Hujan turun ketika aku kembali ke rumah lama keluargaku."
-    ],
-
-    [
-        "THE HOUSE",
-        "Tidak ada yang tinggal di sini sejak malam itu."
-    ],
-
-    [
-        "THE WARNING",
-        "Jangan masuk ke kamar paling ujung."
-    ],
-
-    [
-        "THE HOUSE REMEMBERS",
-        "Tapi rumah itu masih mengingat semuanya."
-    ]
-
-];
-
-let sceneIndex =
-    0;
-
-function playCinematic() {
-
-    showScreen(
-        "cinematic"
-    );
-
-    sceneIndex =
-        0;
-
-    nextScene();
-}
-
-function nextScene() {
-
-    if (
-        sceneIndex >=
-        scenes.length
-    ) {
-
-        showScreen(
-            "creator"
-        );
-
-        return;
-    }
-
-    const label =
-        document.getElementById(
-            "chapterLabel"
-        );
-
-    const text =
-        document.getElementById(
-            "cinematicText"
-        );
-
-    if (
-        label
-    )
-        label.textContent =
-            scenes[
-                sceneIndex
-            ][0];
-
-    if (
-        text
-    )
-        text.textContent =
-            scenes[
-                sceneIndex
-            ][1];
-
-    sceneIndex++;
-
-    setTimeout(
-        nextScene,
-        2500
-    );
-}
-
-document
-    .getElementById(
-        "skipCinematic"
-    )
-    ?.addEventListener(
-        "click",
-        () => {
-
-            showScreen(
-                "creator"
-            );
-
-        }
-    );
-
-/* =========================================================
-   CANVAS
-========================================================= */
-
-function resizeCanvas() {
-
-    if (!canvas) return;
-
-    canvas.width =
-        canvas.clientWidth ||
-        900;
-
-    canvas.height =
-        canvas.clientHeight ||
-        600;
-}
-
-window.addEventListener(
-    "resize",
-    resizeCanvas
-);
-
-resizeCanvas();
-
-/* =========================================================
-   LOOP
-========================================================= */
-
-function update() {
-
-    if (
-        !gameStarted ||
-        gameOver
-    ) return;
-
-    gameTime++;
-
-    updatePlayer();
-
-    updateBattery();
-
-    updateEntity();
-
-    if (
-        gameTime % 900 === 0
-    ) {
-
-        calm(5);
-
-    }
-}
-
-function render() {
-
-    if (
-        !gameStarted
-    ) return;
-
-    drawWorld();
-}
+/* =========================
+   GAME LOOP
+========================= */
+
+let paused = false;
 
 function loop() {
 
-    update();
+  if (!paused) {
+
+    updatePlayer();
+    checkRoomTransition();
+
+    gameTime++;
+
+    if (flashlight) {
+
+      battery -=
+        currentRoom === "basement"
+          ? 0.018
+          : 0.009;
+
+      if (battery <= 0) {
+
+        battery = 0;
+        flashlight = false;
+
+        message(
+          "FLASHLIGHT MATI."
+        );
+      }
+    }
+
+    updateEntity();
+
+    fear = Math.max(
+      0,
+      fear - 0.006
+    );
+
+    updateUI();
 
     render();
+  }
 
-    requestAnimationFrame(
-        loop
-    );
+  requestAnimationFrame(loop);
 }
 
-showScreen(
-    "cinematic"
-);
+/* =========================
+   PAUSE
+========================= */
 
-setTimeout(
-    playCinematic,
-    500
-);
+function togglePause() {
+
+  if (!screens.game?.classList.contains("active")) {
+    return;
+  }
+
+  paused = !paused;
+
+  if (paused) {
+
+    message("GAME PAUSED");
+
+    saveGame(false);
+
+  } else {
+
+    message("GAME RESUMED");
+  }
+}
+
+/* =========================
+   RENDER
+========================= */
+
+function render() {
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  drawRoom();
+  drawObjects();
+  drawEntity();
+  drawPlayer();
+  drawLighting();
+}
+
+/* =========================
+   ROOM
+========================= */
+
+function drawRoom() {
+
+  const room =
+    rooms[currentRoom];
+
+  ctx.fillStyle = room.floor;
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  /* floor lines */
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,.025)";
+
+  ctx.lineWidth = 1;
+
+  for (
+    let x = 0;
+    x < canvas.width;
+    x += 45
+  ) {
+
+    ctx.beginPath();
+
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+
+    ctx.stroke();
+  }
+
+  for (
+    let y = 0;
+    y < canvas.height;
+    y += 45
+  ) {
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+
+    ctx.stroke();
+  }
+
+  /* walls */
+
+  ctx.fillStyle = room.wall;
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    35
+  );
+
+  ctx.fillRect(
+    0,
+    canvas.height - 35,
+    canvas.width,
+    35
+  );
+
+  ctx.fillRect(
+    0,
+    0,
+    35,
+    canvas.height
+  );
+
+  ctx.fillRect(
+    canvas.width - 35,
+    0,
+    35,
+    canvas.height
+  );
+}
+
+/* =========================
+   OBJECTS
+========================= */
+
+function drawObjects() {
+
+  ctx.save();
+
+  if (currentRoom === "hallway") {
+
+    furniture(180, 210, 90, 60);
+    clock(450, 150);
+
+  }
+
+  if (currentRoom === "living") {
+
+    furniture(250, 250, 120, 70);
+    radio(250, 250);
+
+    painting(550, 180);
+
+  }
+
+  if (currentRoom === "bedroom") {
+
+    furniture(280, 230, 130, 80);
+    mirror(280, 230);
+
+    wardrobe(620, 250);
+
+  }
+
+  if (currentRoom === "basement") {
+
+    box(300, 300);
+
+    finalDoorDraw(
+      canvas.width - 70,
+      300
+    );
+
+    if (
+      story.letter &&
+      story.mirror &&
+      story.radio
+    ) {
+
+      hiddenDoor(
+        520,
+        120
+      );
+    }
+  }
+
+  if (currentRoom === "secret") {
+
+    ritualCircle(
+      canvas.width / 2,
+      230
+    );
+
+    for (
+      let i = 0;
+      i < 6;
+      i++
+    ) {
+
+      pictureFrame(
+        120 + i * 130,
+        100
+      );
+    }
+  }
+
+  ctx.restore();
+}
+
+/* =========================
+   SIMPLE OBJECT DRAWING
+========================= */
+
+function furniture(x, y, w, h) {
+
+  ctx.fillStyle = "#373235";
+
+  ctx.fillRect(
+    x - w / 2,
+    y - h / 2,
+    w,
+    h
+  );
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,.1)";
+
+  ctx.strokeRect(
+    x - w / 2,
+    y - h / 2,
+    w,
+    h
+  );
+}
+
+function clock(x, y) {
+
+  ctx.strokeStyle = "#aaa";
+
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x,
+    y,
+    35,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.stroke();
+
+  ctx.beginPath();
+
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 5, y - 15);
+
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + 14, y);
+
+  ctx.stroke();
+}
+
+function radio(x, y) {
+
+  ctx.fillStyle = "#151515";
+
+  ctx.fillRect(
+    x - 45,
+    y - 25,
+    90,
+    50
+  );
+
+  ctx.fillStyle = "#777";
+
+  ctx.fillRect(
+    x - 25,
+    y - 12,
+    50,
+    20
+  );
+}
+
+function painting(x, y) {
+
+  ctx.strokeStyle = "#8a7058";
+
+  ctx.lineWidth = 10;
+
+  ctx.strokeRect(
+    x - 45,
+    y - 35,
+    90,
+    70
+  );
+
+  ctx.fillStyle = "#151515";
+
+  ctx.fillRect(
+    x - 40,
+    y - 30,
+    80,
+    60
+  );
+}
+
+function mirror(x, y) {
+
+  ctx.fillStyle = "#252a31";
+
+  ctx.fillRect(
+    x - 45,
+    y - 70,
+    90,
+    140
+  );
+
+  ctx.strokeStyle = "#aaa";
+
+  ctx.strokeRect(
+    x - 45,
+    y - 70,
+    90,
+    140
+  );
+}
+
+function wardrobe(x, y) {
+
+  ctx.fillStyle = "#30261f";
+
+  ctx.fillRect(
+    x - 55,
+    y - 75,
+    110,
+    150
+  );
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,.12)";
+
+  ctx.strokeRect(
+    x - 55,
+    y - 75,
+    110,
+    150
+  );
+}
+
+function box(x, y) {
+
+  ctx.fillStyle = "#514031";
+
+  ctx.fillRect(
+    x - 45,
+    y - 35,
+    90,
+    70
+  );
+}
+
+function finalDoorDraw(x, y) {
+
+  ctx.fillStyle = "#08090a";
+
+  ctx.fillRect(
+    x - 35,
+    y - 70,
+    70,
+    140
+  );
+
+  ctx.strokeStyle =
+    story.finalDoor
+      ? "#8e7777"
+      : "#454545";
+
+  ctx.strokeRect(
+    x - 35,
+    y - 70,
+    70,
+    140
+  );
+}
+
+function hiddenDoor(x, y) {
+
+  ctx.strokeStyle =
+    "rgba(160,150,180,.35)";
+
+  ctx.strokeRect(
+    x - 40,
+    y - 60,
+    80,
+    120
+  );
+
+  ctx.font = "14px serif";
+
+  ctx.fillStyle =
+    "rgba(220,210,230,.5)";
+
+  ctx.textAlign = "center";
+
+  ctx.fillText(
+    "03:17",
+    x,
+    y + 5
+  );
+}
+
+function ritualCircle(x, y) {
+
+  ctx.strokeStyle =
+    "rgba(170,170,190,.25)";
+
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x,
+    y,
+    70,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.stroke();
+
+  ctx.beginPath();
+
+  ctx.arc(
+    x,
+    y,
+    35,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.stroke();
+}
+
+function pictureFrame(x, y) {
+
+  ctx.fillStyle = "#332a25";
+
+  ctx.fillRect(
+    x - 35,
+    y - 45,
+    70,
+    90
+  );
+
+  ctx.fillStyle = "#171717";
+
+  ctx.fillRect(
+    x - 27,
+    y - 37,
+    54,
+    74
+  );
+}
+
+/* =========================
+   ENTITY DRAW
+========================= */
+
+function drawEntity() {
+
+  if (
+    !entity.visible ||
+    entity.room !== currentRoom
+  ) {
+    return;
+  }
+
+  ctx.save();
+
+  ctx.globalAlpha =
+    entity.state === "watching"
+      ? 0.35
+      : 0.75;
+
+  ctx.fillStyle = "#050505";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    entity.x,
+    entity.y,
+    25,
+    70,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.fillStyle =
+    "rgba(255,255,255,.75)";
+
+  ctx.beginPath();
+
+  ctx.arc(
+    entity.x - 8,
+    entity.y - 20,
+    3,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.arc(
+    entity.x + 8,
+    entity.y - 20,
+    3,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* =========================
+   PLAYER
+========================= */
+
+function drawPlayer() {
+
+  ctx.save();
+
+  ctx.fillStyle = colors.outfit;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    player.x,
+    player.y + 8,
+    12,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.fillStyle = colors.skin;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    player.x,
+    player.y - 8,
+    8,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.fillStyle = colors.hair;
+
+  ctx.beginPath();
+
+  ctx.arc(
+    player.x,
+    player.y - 11,
+    8,
+    Math.PI,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/* =========================
+   LIGHTING
+========================= */
+
+function drawLighting() {
+
+  const room =
+    rooms[currentRoom];
+
+  const darkness =
+    1 - room.light;
+
+  const gradient =
+    ctx.createRadialGradient(
+      player.x,
+      player.y,
+      flashlight ? 40 : 10,
+      player.x,
+      player.y,
+      flashlight ? 280 : 130
+    );
+
+  gradient.addColorStop(
+    0,
+    "rgba(0,0,0,0)"
+  );
+
+  gradient.addColorStop(
+    1,
+    `rgba(0,0,0,${Math.min(
+      .95,
+      darkness + fear / 220
+    )})`
+  );
+
+  ctx.fillStyle = gradient;
+
+  ctx.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  /* fear vignette */
+
+  if (fear > 10) {
+
+    const vignette =
+      ctx.createRadialGradient(
+        canvas.width / 2,
+        canvas.height / 2,
+        80,
+        canvas.width / 2,
+        canvas.height / 2,
+        Math.max(
+          canvas.width,
+          canvas.height
+        ) / 1.2
+      );
+
+    vignette.addColorStop(
+      0,
+      "rgba(0,0,0,0)"
+    );
+
+    vignette.addColorStop(
+      1,
+      `rgba(20,0,0,${Math.min(
+        .55,
+        fear / 180
+      )})`
+    );
+
+    ctx.fillStyle = vignette;
+
+    ctx.fillRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+  }
+}
+
+/* =========================
+   AUDIO
+========================= */
+
+let audioContext = null;
+
+function getAudio() {
+
+  if (!audioContext) {
+
+    audioContext =
+      new (
+        window.AudioContext ||
+        window.webkitAudioContext
+      )();
+  }
+
+  if (
+    audioContext.state === "suspended"
+  ) {
+    audioContext.resume();
+  }
+
+  return audioContext;
+}
+
+function sound(
+  frequency,
+  duration,
+  type = "sine"
+) {
+
+  try {
+
+    const audio = getAudio();
+
+    const osc =
+      audio.createOscillator();
+
+    const gain =
+      audio.createGain();
+
+    osc.type = type;
+
+    osc.frequency.value =
+      frequency;
+
+    gain.gain.setValueAtTime(
+      0.001,
+      audio.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      0.08,
+      audio.currentTime + 0.02
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audio.currentTime + duration
+    );
+
+    osc.connect(gain);
+    gain.connect(audio.destination);
+
+    osc.start();
+
+    osc.stop(
+      audio.currentTime + duration
+    );
+
+  } catch {}
+}
+
+function footstep() {
+
+  sound(
+    65 + Math.random() * 25,
+    .07,
+    "triangle"
+  );
+}
+
+function whisper() {
+
+  sound(
+    180 + Math.random() * 60,
+    .18,
+    "sine"
+  );
+}
+
+function doorSound() {
+
+  sound(
+    120,
+    .3,
+    "sawtooth"
+  );
+}
+
+/* =========================
+   START
+========================= */
+
+updatePreview();
+
+showScreen("cinematic");
+
+setTimeout(() => {
+  playCinematic();
+}, 500);
 
 loop();
-
-/* =========================================================
-   END PHASE 5
-========================================================= */

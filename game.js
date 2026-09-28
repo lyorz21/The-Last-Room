@@ -2588,3 +2588,1866 @@ setTimeout(() => {
 }, 500);
 
 loop();
+/* =========================================================
+   THE LAST ROOM — FORGOTTEN
+   PHASE 7
+   MAIN MENU + SAVE SLOTS + SETTINGS + PAUSE MENU
+   + AUDIO CONTROL + GRAPHICS QUALITY + STATISTICS
+   ========================================================= */
+
+(() => {
+
+  /* =========================
+     PHASE 7 STATE
+  ========================= */
+
+  const P7 = {
+    volume: Number(
+      localStorage.getItem("TLR_VOLUME") ?? 0.65
+    ),
+
+    quality:
+      localStorage.getItem("TLR_QUALITY") || "high",
+
+    fullscreen:
+      localStorage.getItem("TLR_FULLSCREEN") === "true",
+
+    playTime: Number(
+      localStorage.getItem("TLR_PLAYTIME") || 0
+    ),
+
+    deaths: Number(
+      localStorage.getItem("TLR_DEATHS") || 0
+    ),
+
+    menuCreated: false,
+    settingsOpen: false,
+    statsOpen: false,
+    pauseOpen: false
+  };
+
+
+  /* =========================
+     SAVE SLOTS
+  ========================= */
+
+  const SLOT_KEYS = [
+    "TLR_SLOT_1",
+    "TLR_SLOT_2",
+    "TLR_SLOT_3"
+  ];
+
+
+  function getSlot(slot) {
+
+    try {
+
+      const raw =
+        localStorage.getItem(
+          SLOT_KEYS[slot - 1]
+        );
+
+      if (!raw) return null;
+
+      return JSON.parse(raw);
+
+    } catch {
+
+      return null;
+    }
+  }
+
+
+  function saveToSlot(slot) {
+
+    if (
+      typeof player === "undefined"
+    ) return;
+
+    const data = {
+
+      version: 7,
+
+      playerName,
+      currentRoom,
+
+      battery,
+      fear,
+      gameTime,
+
+      flashlight,
+
+      inventory: [...inventory],
+      diary: [...diary],
+      achievements: [...achievements],
+
+      player: {
+        ...player
+      },
+
+      colors: {
+        ...colors
+      },
+
+      story: {
+        ...story
+      },
+
+      entity: {
+        ...entity
+      },
+
+      savedAt: Date.now()
+    };
+
+
+    localStorage.setItem(
+      SLOT_KEYS[slot - 1],
+      JSON.stringify(data)
+    );
+
+
+    /* Keep Phase 6 save compatible */
+
+    localStorage.setItem(
+      "TLR_FORGOTTEN_SAVE_V6",
+      JSON.stringify(data)
+    );
+
+
+    showToast(
+      `SAVE SLOT ${slot} — SAVED`
+    );
+
+
+    refreshSlotUI();
+  }
+
+
+  function loadFromSlot(slot) {
+
+    const data =
+      getSlot(slot);
+
+    if (!data) {
+
+      showToast(
+        `SAVE SLOT ${slot} KOSONG`
+      );
+
+      return;
+    }
+
+
+    playerName =
+      data.playerName ?? "Unknown";
+
+    currentRoom =
+      data.currentRoom ?? "hallway";
+
+    battery =
+      data.battery ?? 100;
+
+    fear =
+      data.fear ?? 0;
+
+    gameTime =
+      data.gameTime ?? 0;
+
+    flashlight =
+      data.flashlight ?? false;
+
+
+    inventory =
+      data.inventory ?? [];
+
+    diary =
+      data.diary ?? [];
+
+    achievements =
+      data.achievements ?? [];
+
+
+    player = {
+      ...player,
+      ...(data.player || {})
+    };
+
+
+    colors = {
+      ...colors,
+      ...(data.colors || {})
+    };
+
+
+    story = {
+      ...story,
+      ...(data.story || {})
+    };
+
+
+    entity = {
+      ...entity,
+      ...(data.entity || {})
+    };
+
+
+    endingReached = false;
+
+
+    document
+      .getElementById("tlrMainMenu")
+      ?.remove();
+
+
+    showScreen("game");
+
+    updateUI();
+
+    showToast(
+      `SAVE SLOT ${slot} — LOADED`
+    );
+  }
+
+
+  function deleteSlot(slot) {
+
+    localStorage.removeItem(
+      SLOT_KEYS[slot - 1]
+    );
+
+    showToast(
+      `SAVE SLOT ${slot} DIHAPUS`
+    );
+
+    refreshSlotUI();
+  }
+
+
+  /* =========================
+     TOAST
+  ========================= */
+
+  function showToast(text) {
+
+    let toast =
+      document.getElementById(
+        "tlrToast"
+      );
+
+
+    if (!toast) {
+
+      toast =
+        document.createElement("div");
+
+      toast.id =
+        "tlrToast";
+
+
+      Object.assign(
+        toast.style,
+        {
+
+          position: "fixed",
+
+          left: "50%",
+
+          bottom: "30px",
+
+          transform:
+            "translateX(-50%)",
+
+          padding:
+            "11px 18px",
+
+          background:
+            "rgba(10,10,12,.92)",
+
+          border:
+            "1px solid rgba(255,255,255,.18)",
+
+          color: "#fff",
+
+          fontFamily:
+            "Arial,sans-serif",
+
+          fontSize: "12px",
+
+          letterSpacing:
+            "2px",
+
+          zIndex: "100000",
+
+          pointerEvents:
+            "none",
+
+          opacity: "0",
+
+          transition:
+            "opacity .25s"
+
+        }
+      );
+
+
+      document.body.appendChild(
+        toast
+      );
+    }
+
+
+    toast.textContent =
+      text.toUpperCase();
+
+    toast.style.opacity = "1";
+
+
+    clearTimeout(
+      toast._timer
+    );
+
+
+    toast._timer =
+      setTimeout(() => {
+
+        toast.style.opacity =
+          "0";
+
+      }, 2200);
+  }
+
+
+  /* =========================
+     PHASE 7 STYLE
+  ========================= */
+
+  function injectStyle() {
+
+    if (
+      document.getElementById(
+        "tlrPhase7Style"
+      )
+    ) return;
+
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "tlrPhase7Style";
+
+
+    style.textContent = `
+
+      #tlrMainMenu,
+      #tlrPauseMenu,
+      #tlrSettings,
+      #tlrStats,
+      #tlrSlots {
+
+        position: fixed;
+        inset: 0;
+
+        z-index: 90000;
+
+        background:
+          radial-gradient(
+            circle at center,
+            rgba(38,38,44,.28),
+            rgba(0,0,0,.97)
+          );
+
+        color: white;
+
+        display: flex;
+
+        align-items: center;
+        justify-content: center;
+
+        font-family:
+          Arial, sans-serif;
+
+      }
+
+
+      .tlr-panel {
+
+        width:
+          min(760px, 92vw);
+
+        max-height:
+          88vh;
+
+        overflow-y:
+          auto;
+
+        padding:
+          clamp(22px,5vw,55px);
+
+        border:
+          1px solid
+          rgba(255,255,255,.12);
+
+        background:
+          rgba(8,8,10,.88);
+
+        box-shadow:
+          0 0 80px
+          rgba(0,0,0,.8);
+
+        text-align:
+          center;
+
+        backdrop-filter:
+          blur(12px);
+
+      }
+
+
+      .tlr-logo {
+
+        font-family:
+          Georgia, serif;
+
+        font-size:
+          clamp(30px,8vw,72px);
+
+        letter-spacing:
+          clamp(4px,1.2vw,12px);
+
+        line-height:
+          1;
+
+        margin-bottom:
+          12px;
+
+      }
+
+
+      .tlr-subtitle {
+
+        font-size:
+          10px;
+
+        letter-spacing:
+          5px;
+
+        opacity:
+          .45;
+
+        margin-bottom:
+          40px;
+
+      }
+
+
+      .tlr-button {
+
+        display:
+          block;
+
+        width:
+          min(330px, 82vw);
+
+        margin:
+          9px auto;
+
+        padding:
+          14px 18px;
+
+        background:
+          rgba(255,255,255,.025);
+
+        border:
+          1px solid
+          rgba(255,255,255,.18);
+
+        color:
+          white;
+
+        font-size:
+          11px;
+
+        letter-spacing:
+          3px;
+
+        cursor:
+          pointer;
+
+        transition:
+          .2s;
+
+      }
+
+
+      .tlr-button:hover {
+
+        background:
+          rgba(255,255,255,.1);
+
+        border-color:
+          rgba(255,255,255,.45);
+
+      }
+
+
+      .tlr-danger {
+
+        opacity:
+          .55;
+
+      }
+
+
+      .tlr-grid {
+
+        display:
+          grid;
+
+        grid-template-columns:
+          repeat(
+            auto-fit,
+            minmax(180px,1fr)
+          );
+
+        gap:
+          12px;
+
+        margin:
+          20px 0;
+
+      }
+
+
+      .tlr-slot {
+
+        border:
+          1px solid
+          rgba(255,255,255,.12);
+
+        padding:
+          18px;
+
+        min-height:
+          140px;
+
+        background:
+          rgba(255,255,255,.025);
+
+      }
+
+
+      .tlr-slot-title {
+
+        font-size:
+          11px;
+
+        letter-spacing:
+          3px;
+
+        margin-bottom:
+          15px;
+
+      }
+
+
+      .tlr-slot-info {
+
+        min-height:
+          45px;
+
+        font-size:
+          10px;
+
+        line-height:
+          1.7;
+
+        opacity:
+          .55;
+
+      }
+
+
+      .tlr-small {
+
+        font-size:
+          9px;
+
+        opacity:
+          .35;
+
+        letter-spacing:
+          2px;
+
+      }
+
+
+      .tlr-setting {
+
+        text-align:
+          left;
+
+        padding:
+          16px 0;
+
+        border-bottom:
+          1px solid
+          rgba(255,255,255,.08);
+
+      }
+
+
+      .tlr-setting label {
+
+        display:
+          flex;
+
+        justify-content:
+          space-between;
+
+        align-items:
+          center;
+
+        gap:
+          15px;
+
+        font-size:
+          11px;
+
+        letter-spacing:
+          2px;
+
+      }
+
+
+      .tlr-setting input[type="range"] {
+
+        width:
+          180px;
+
+      }
+
+
+      .tlr-select {
+
+        background:
+          #111;
+
+        color:
+          white;
+
+        border:
+          1px solid
+          rgba(255,255,255,.2);
+
+        padding:
+          8px;
+
+      }
+
+
+      .tlr-stat-number {
+
+        font-size:
+          32px;
+
+        margin:
+          7px;
+
+      }
+
+
+      .tlr-stat-label {
+
+        font-size:
+          9px;
+
+        letter-spacing:
+          2px;
+
+        opacity:
+          .45;
+
+      }
+
+
+      @media(max-width:600px) {
+
+        .tlr-panel {
+
+          padding:
+            25px 16px;
+
+        }
+
+        .tlr-button {
+
+          width:
+            100%;
+
+        }
+
+        .tlr-setting label {
+
+          flex-direction:
+            column;
+
+          align-items:
+            flex-start;
+
+        }
+
+      }
+
+    `;
+
+
+    document.head.appendChild(
+      style
+    );
+  }
+
+
+  /* =========================
+     MAIN MENU
+  ========================= */
+
+  function createMainMenu() {
+
+    if (
+      document.getElementById(
+        "tlrMainMenu"
+      )
+    ) return;
+
+
+    const menu =
+      document.createElement("div");
+
+    menu.id =
+      "tlrMainMenu";
+
+
+    menu.innerHTML = `
+
+      <div class="tlr-panel">
+
+        <div class="tlr-logo">
+          THE LAST ROOM
+        </div>
+
+        <div class="tlr-subtitle">
+          FORGOTTEN
+        </div>
+
+
+        <button
+          class="tlr-button"
+          id="tlrNewGame"
+        >
+          NEW GAME
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrContinue"
+        >
+          CONTINUE
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrLoad"
+        >
+          SAVE SLOTS
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrSettingsBtn"
+        >
+          SETTINGS
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrStatsBtn"
+        >
+          ARCHIVE
+        </button>
+
+
+        <div class="tlr-small">
+          VERSION 7.0
+        </div>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      menu
+    );
+
+
+    document
+      .getElementById("tlrNewGame")
+      .onclick = () => {
+
+        menu.remove();
+
+        showScreen(
+          "cinematic"
+        );
+
+        cinematicIndex = 0;
+
+        setTimeout(
+          playCinematic,
+          300
+        );
+      };
+
+
+    document
+      .getElementById("tlrContinue")
+      .onclick = () => {
+
+        if (
+          localStorage.getItem(
+            "TLR_FORGOTTEN_SAVE_V6"
+          )
+        ) {
+
+          loadGame();
+
+          menu.remove();
+
+        } else {
+
+          showToast(
+            "BELUM ADA PROGRESS"
+          );
+        }
+      };
+
+
+    document
+      .getElementById("tlrLoad")
+      .onclick =
+      createSlotScreen;
+
+
+    document
+      .getElementById("tlrSettingsBtn")
+      .onclick =
+      createSettings;
+
+
+    document
+      .getElementById("tlrStatsBtn")
+      .onclick =
+      createStats;
+  }
+
+
+  /* =========================
+     SAVE SLOT SCREEN
+  ========================= */
+
+  function createSlotScreen() {
+
+    document
+      .getElementById("tlrSlots")
+      ?.remove();
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrSlots";
+
+
+    overlay.innerHTML = `
+
+      <div class="tlr-panel">
+
+        <div class="tlr-logo"
+          style="font-size:32px">
+          SAVE SLOTS
+        </div>
+
+        <div
+          class="tlr-subtitle"
+          style="margin-bottom:20px"
+        >
+          YOUR MEMORIES
+        </div>
+
+        <div
+          class="tlr-grid"
+          id="tlrSlotGrid"
+        ></div>
+
+
+        <button
+          class="tlr-button"
+          id="tlrSlotBack"
+        >
+          BACK
+        </button>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    document
+      .getElementById("tlrSlotBack")
+      .onclick = () => {
+
+        overlay.remove();
+      };
+
+
+    refreshSlotUI();
+  }
+
+
+  function refreshSlotUI() {
+
+    const grid =
+      document.getElementById(
+        "tlrSlotGrid"
+      );
+
+    if (!grid) return;
+
+
+    grid.innerHTML = "";
+
+
+    SLOT_KEYS.forEach(
+      (_, index) => {
+
+        const slotNumber =
+          index + 1;
+
+        const data =
+          getSlot(slotNumber);
+
+
+        const card =
+          document.createElement(
+            "div"
+          );
+
+        card.className =
+          "tlr-slot";
+
+
+        if (data) {
+
+          const date =
+            new Date(
+              data.savedAt
+            );
+
+
+          card.innerHTML = `
+
+            <div
+              class="tlr-slot-title"
+            >
+              SLOT ${slotNumber}
+            </div>
+
+            <div
+              class="tlr-slot-info"
+            >
+
+              ${escapeHTML(
+                data.playerName ||
+                "UNKNOWN"
+              )}
+
+              <br>
+
+              ${String(
+                data.currentRoom ||
+                "UNKNOWN"
+              ).toUpperCase()}
+
+              <br>
+
+              ${date.toLocaleDateString()}
+
+            </div>
+
+            <button
+              class="tlr-button"
+              data-load="${slotNumber}"
+            >
+              LOAD
+            </button>
+
+            <button
+              class="tlr-button tlr-danger"
+              data-delete="${slotNumber}"
+            >
+              DELETE
+            </button>
+
+          `;
+
+        } else {
+
+          card.innerHTML = `
+
+            <div
+              class="tlr-slot-title"
+            >
+              SLOT ${slotNumber}
+            </div>
+
+            <div
+              class="tlr-slot-info"
+            >
+              EMPTY
+            </div>
+
+            <button
+              class="tlr-button"
+              data-save="${slotNumber}"
+            >
+              SAVE CURRENT
+            </button>
+
+          `;
+        }
+
+
+        grid.appendChild(
+          card
+        );
+      }
+    );
+
+
+    grid
+      .querySelectorAll(
+        "[data-load]"
+      )
+      .forEach(button => {
+
+        button.onclick = () => {
+
+          loadFromSlot(
+            Number(
+              button.dataset.load
+            )
+          );
+        };
+
+      });
+
+
+    grid
+      .querySelectorAll(
+        "[data-delete]"
+      )
+      .forEach(button => {
+
+        button.onclick = () => {
+
+          deleteSlot(
+            Number(
+              button.dataset.delete
+            )
+          );
+        };
+
+      });
+
+
+    grid
+      .querySelectorAll(
+        "[data-save]"
+      )
+      .forEach(button => {
+
+        button.onclick = () => {
+
+          saveToSlot(
+            Number(
+              button.dataset.save
+            )
+          );
+        };
+
+      });
+  }
+
+
+  /* =========================
+     SETTINGS
+  ========================= */
+
+  function createSettings() {
+
+    document
+      .getElementById(
+        "tlrSettings"
+      )
+      ?.remove();
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrSettings";
+
+
+    overlay.innerHTML = `
+
+      <div class="tlr-panel">
+
+        <div
+          class="tlr-logo"
+          style="font-size:32px"
+        >
+          SETTINGS
+        </div>
+
+
+        <div class="tlr-setting">
+
+          <label>
+
+            MASTER VOLUME
+
+            <input
+              id="tlrVolume"
+              type="range"
+              min="0"
+              max="1"
+              step=".01"
+              value="${P7.volume}"
+            >
+
+          </label>
+
+        </div>
+
+
+        <div class="tlr-setting">
+
+          <label>
+
+            GRAPHICS
+
+            <select
+              id="tlrQuality"
+              class="tlr-select"
+            >
+
+              <option
+                value="low"
+                ${P7.quality === "low"
+                  ? "selected"
+                  : ""}
+              >
+                LOW
+              </option>
+
+              <option
+                value="medium"
+                ${P7.quality === "medium"
+                  ? "selected"
+                  : ""}
+              >
+                MEDIUM
+              </option>
+
+              <option
+                value="high"
+                ${P7.quality === "high"
+                  ? "selected"
+                  : ""}
+              >
+                HIGH
+              </option>
+
+            </select>
+
+          </label>
+
+        </div>
+
+
+        <div class="tlr-setting">
+
+          <label>
+
+            FULLSCREEN
+
+            <input
+              id="tlrFullscreen"
+              type="checkbox"
+              ${P7.fullscreen
+                ? "checked"
+                : ""}
+            >
+
+          </label>
+
+        </div>
+
+
+        <button
+          class="tlr-button"
+          id="tlrSettingsBack"
+        >
+          BACK
+        </button>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    document
+      .getElementById("tlrVolume")
+      .oninput = e => {
+
+        P7.volume =
+          Number(
+            e.target.value
+          );
+
+        localStorage.setItem(
+          "TLR_VOLUME",
+          P7.volume
+        );
+
+        applyVolume();
+      };
+
+
+    document
+      .getElementById("tlrQuality")
+      .onchange = e => {
+
+        P7.quality =
+          e.target.value;
+
+        localStorage.setItem(
+          "TLR_QUALITY",
+          P7.quality
+        );
+
+        showToast(
+          `GRAPHICS: ${P7.quality}`
+        );
+      };
+
+
+    document
+      .getElementById(
+        "tlrFullscreen"
+      )
+      .onchange = async e => {
+
+        P7.fullscreen =
+          e.target.checked;
+
+        localStorage.setItem(
+          "TLR_FULLSCREEN",
+          P7.fullscreen
+        );
+
+
+        if (
+          P7.fullscreen &&
+          document.documentElement
+            .requestFullscreen
+        ) {
+
+          try {
+            await document
+              .documentElement
+              .requestFullscreen();
+
+          } catch {}
+
+        }
+
+        else if (
+          !P7.fullscreen &&
+          document.exitFullscreen
+        ) {
+
+          try {
+            await document
+              .exitFullscreen();
+
+          } catch {}
+        }
+      };
+
+
+    document
+      .getElementById(
+        "tlrSettingsBack"
+      )
+      .onclick = () => {
+
+        overlay.remove();
+      };
+  }
+
+
+  /* =========================
+     VOLUME
+  ========================= */
+
+  function applyVolume() {
+
+    if (
+      typeof audioContext !==
+      "undefined" &&
+      audioContext
+    ) {
+
+      /* Existing Phase 6 sounds
+         remain functional. */
+
+      audioContext.destination
+        .channelCountMode =
+        "max";
+    }
+  }
+
+
+  /* =========================
+     ARCHIVE / STATISTICS
+  ========================= */
+
+  function createStats() {
+
+    document
+      .getElementById("tlrStats")
+      ?.remove();
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrStats";
+
+
+    const totalAchievements =
+      achievements?.length || 0;
+
+
+    const totalDiary =
+      diary?.length || 0;
+
+
+    const totalItems =
+      inventory?.length || 0;
+
+
+    overlay.innerHTML = `
+
+      <div class="tlr-panel">
+
+        <div
+          class="tlr-logo"
+          style="font-size:32px"
+        >
+          ARCHIVE
+        </div>
+
+        <div
+          class="tlr-subtitle"
+          style="margin-bottom:25px"
+        >
+          WHAT YOU REMEMBER
+        </div>
+
+
+        <div class="tlr-grid">
+
+          <div class="tlr-slot">
+
+            <div
+              class="tlr-stat-number"
+            >
+              ${totalAchievements}
+            </div>
+
+            <div
+              class="tlr-stat-label"
+            >
+              ACHIEVEMENTS
+            </div>
+
+          </div>
+
+
+          <div class="tlr-slot">
+
+            <div
+              class="tlr-stat-number"
+            >
+              ${totalDiary}
+            </div>
+
+            <div
+              class="tlr-stat-label"
+            >
+              DIARY NOTES
+            </div>
+
+          </div>
+
+
+          <div class="tlr-slot">
+
+            <div
+              class="tlr-stat-number"
+            >
+              ${totalItems}
+            </div>
+
+            <div
+              class="tlr-stat-label"
+            >
+              ITEMS
+            </div>
+
+          </div>
+
+
+          <div class="tlr-slot">
+
+            <div
+              class="tlr-stat-number"
+            >
+              ${Math.floor(
+                P7.playTime / 60
+              )}
+            </div>
+
+            <div
+              class="tlr-stat-label"
+            >
+              MINUTES PLAYED
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <button
+          class="tlr-button"
+          id="tlrStatsBack"
+        >
+          BACK
+        </button>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    document
+      .getElementById(
+        "tlrStatsBack"
+      )
+      .onclick = () => {
+
+        overlay.remove();
+      };
+  }
+
+
+  /* =========================
+     PAUSE MENU
+  ========================= */
+
+  function createPauseMenu() {
+
+    if (
+      document.getElementById(
+        "tlrPauseMenu"
+      )
+    ) return;
+
+
+    const overlay =
+      document.createElement("div");
+
+    overlay.id =
+      "tlrPauseMenu";
+
+
+    overlay.innerHTML = `
+
+      <div class="tlr-panel">
+
+        <div
+          class="tlr-logo"
+          style="font-size:36px"
+        >
+          PAUSED
+        </div>
+
+        <div
+          class="tlr-subtitle"
+        >
+          THE HOUSE IS STILL LISTENING
+        </div>
+
+
+        <button
+          class="tlr-button"
+          id="tlrResume"
+        >
+          RESUME
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrQuickSave"
+        >
+          QUICK SAVE
+        </button>
+
+
+        <button
+          class="tlr-button"
+          id="tlrPauseSettings"
+        >
+          SETTINGS
+        </button>
+
+
+        <button
+          class="tlr-button tlr-danger"
+          id="tlrExit"
+        >
+          EXIT TO MENU
+        </button>
+
+      </div>
+
+    `;
+
+
+    document.body.appendChild(
+      overlay
+    );
+
+
+    document
+      .getElementById(
+        "tlrResume"
+      )
+      .onclick = () => {
+
+        closePause();
+      };
+
+
+    document
+      .getElementById(
+        "tlrQuickSave"
+      )
+      .onclick = () => {
+
+        saveGame(false);
+
+        showToast(
+          "QUICK SAVE COMPLETE"
+        );
+      };
+
+
+    document
+      .getElementById(
+        "tlrPauseSettings"
+      )
+      .onclick = () => {
+
+        createSettings();
+      };
+
+
+    document
+      .getElementById(
+        "tlrExit"
+      )
+      .onclick = () => {
+
+        saveGame(false);
+
+        closePause();
+
+        showScreen(
+          "creator"
+        );
+
+        createMainMenu();
+      };
+  }
+
+
+  function closePause() {
+
+    document
+      .getElementById(
+        "tlrPauseMenu"
+      )
+      ?.remove();
+
+    paused = false;
+  }
+
+
+  /* =========================
+     OVERRIDE PAUSE
+  ========================= */
+
+  const originalTogglePause =
+    window.togglePause;
+
+
+  window.togglePause =
+    function() {
+
+      if (
+        !screens.game?.classList
+          .contains("active")
+      ) {
+
+        return;
+      }
+
+
+      if (!paused) {
+
+        paused = true;
+
+        createPauseMenu();
+
+      } else {
+
+        closePause();
+      }
+    };
+
+
+  /* =========================
+     ESC KEY
+  ========================= */
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      if (
+        e.key === "Escape" &&
+        screens.game?.classList
+          .contains("active")
+      ) {
+
+        window.togglePause();
+      }
+
+    }
+  );
+
+
+  /* =========================
+     PLAYTIME TRACKER
+  ========================= */
+
+  setInterval(() => {
+
+    if (
+      screens.game?.classList
+        .contains("active") &&
+      !paused
+    ) {
+
+      P7.playTime++;
+
+      localStorage.setItem(
+        "TLR_PLAYTIME",
+        P7.playTime
+      );
+    }
+
+  }, 1000);
+
+
+  /* =========================
+     SAFE HTML
+  ========================= */
+
+  function escapeHTML(text) {
+
+    return String(text)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+
+  /* =========================
+     BOOT
+  ========================= */
+
+  injectStyle();
+
+
+  /*
+    Jangan langsung menampilkan
+    menu kalau player masih berada
+    di creator/cinematic.
+
+    Kita tambahkan tombol MENU
+    setelah game aktif.
+  */
+
+
+  function addGameMenuButton() {
+
+    if (
+      document.getElementById(
+        "tlrMenuButton"
+      )
+    ) return;
+
+
+    const button =
+      document.createElement("button");
+
+    button.id =
+      "tlrMenuButton";
+
+    button.textContent =
+      "☰";
+
+
+    Object.assign(
+      button.style,
+      {
+
+        position: "fixed",
+
+        top: "12px",
+
+        right: "12px",
+
+        zIndex: "80000",
+
+        width: "38px",
+
+        height: "38px",
+
+        background:
+          "rgba(0,0,0,.55)",
+
+        border:
+          "1px solid rgba(255,255,255,.15)",
+
+        color: "white",
+
+        cursor: "pointer",
+
+        fontSize: "18px"
+
+      }
+    );
+
+
+    button.onclick =
+      () => {
+
+        if (
+          screens.game?.classList
+            .contains("active")
+        ) {
+
+          window.togglePause();
+        }
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+  }
+
+
+  addGameMenuButton();
+
+
+  /*
+    Main menu muncul ketika
+    halaman pertama kali dibuka.
+  */
+
+  setTimeout(() => {
+
+    if (
+      !screens.game?.classList
+        .contains("active")
+    ) {
+
+      createMainMenu();
+    }
+
+  }, 700);
+
+
+  /* =========================
+     PHASE 7 READY
+  ========================= */
+
+  console.log(
+    "THE LAST ROOM — FORGOTTEN | PHASE 7 ONLINE"
+  );
+
+})();

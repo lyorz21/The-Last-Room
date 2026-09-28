@@ -4299,26 +4299,7 @@ loop();
   /* =========================
      PLAYTIME TRACKER
   ========================= */
-
-  setInterval(() => {
-
-    if (
-      screens.game?.classList
-        .contains("active") &&
-      !paused
-    ) {
-
-      P7.playTime++;
-
-      localStorage.setItem(
-        "TLR_PLAYTIME",
-        P7.playTime
-      );
-    }
-
-  }, 1000);
-
-
+   
   /* =========================
      SAFE HTML
   ========================= */

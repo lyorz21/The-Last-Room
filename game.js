@@ -5730,3 +5730,758 @@ loop();
   );
 
 })();
+/* =========================================================
+   THE LAST ROOM — FORGOTTEN
+   PHASE 9 — MEMORY
+   ========================================================= */
+
+(() => {
+  "use strict";
+
+  const P9 = {
+    initialized: false,
+
+    memories: {
+      inspectedPhoto: false,
+      heardRadio: false,
+      sawMirror: false,
+      foundLetter: false,
+      foundTruth: false,
+      sawEntity: false,
+      enteredSecret: false,
+      openedFinalDoor: false
+    },
+
+    mirrorWorld: false,
+    memoryLevel: 0,
+    mirrorVisits: 0,
+    chapter3: false,
+    secretRoom2: false,
+    memoryEndingReady: false,
+
+    photoVersion: 0,
+    houseShift: 0,
+    lastMemoryEvent: 0,
+    lastWhisper: 0
+  };
+
+
+  /* =========================================================
+     MEMORY STORAGE
+     ========================================================= */
+
+  function saveMemory() {
+    try {
+      localStorage.setItem(
+        "TLR_MEMORY",
+        JSON.stringify(P9.memories)
+      );
+    } catch (e) {}
+  }
+
+  function loadMemory() {
+    try {
+      const data = JSON.parse(
+        localStorage.getItem("TLR_MEMORY")
+      );
+
+      if (data) {
+        Object.assign(P9.memories, data);
+      }
+    } catch (e) {}
+  }
+
+  function remember(key) {
+    if (!P9.memories[key]) {
+      P9.memories[key] = true;
+      P9.memoryLevel++;
+      saveMemory();
+
+      memoryMessage(
+        "RUMAH INI MENGINGAT."
+      );
+    }
+  }
+
+
+  /* =========================================================
+     UI
+     ========================================================= */
+
+  const style = document.createElement("style");
+
+  style.textContent = `
+    #tlrMemoryText {
+      position:fixed;
+      left:50%;
+      bottom:18%;
+      transform:translateX(-50%);
+      z-index:99999;
+      color:#ddd;
+      font-family:Georgia,serif;
+      font-size:15px;
+      letter-spacing:2px;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .5s;
+      text-shadow:0 0 12px #000;
+      max-width:85%;
+    }
+
+    #tlrMemoryText.show {
+      opacity:1;
+    }
+
+    #tlrMirrorOverlay {
+      position:fixed;
+      inset:0;
+      z-index:99990;
+      pointer-events:none;
+      opacity:0;
+      transition:opacity 1s;
+      background:
+        radial-gradient(
+          ellipse at center,
+          rgba(255,255,255,.04),
+          rgba(0,0,0,.88)
+        );
+      mix-blend-mode:screen;
+    }
+
+    #tlrMirrorOverlay.active {
+      opacity:1;
+    }
+
+    #tlrChapter3 {
+      position:fixed;
+      inset:0;
+      z-index:100000;
+      background:#050505;
+      color:#eee;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity 1.2s;
+    }
+
+    #tlrChapter3.active {
+      opacity:1;
+      pointer-events:auto;
+    }
+
+    .tlr-ch3-title {
+      font-family:Georgia,serif;
+      font-size:clamp(32px,8vw,72px);
+      letter-spacing:8px;
+    }
+
+    .tlr-ch3-sub {
+      margin-top:20px;
+      font-family:Arial,sans-serif;
+      font-size:13px;
+      letter-spacing:4px;
+      opacity:.6;
+    }
+
+    #tlrMemoryPanel {
+      position:fixed;
+      top:20px;
+      right:20px;
+      z-index:9000;
+      padding:10px 13px;
+      background:rgba(0,0,0,.65);
+      border:1px solid rgba(255,255,255,.12);
+      color:#aaa;
+      font:11px Arial,sans-serif;
+      letter-spacing:2px;
+      opacity:.65;
+      pointer-events:none;
+    }
+
+    .tlr-memory-glitch {
+      animation:tlrMemoryGlitch .12s infinite alternate;
+    }
+
+    @keyframes tlrMemoryGlitch {
+      from {
+        transform:translate(0);
+        filter:contrast(1);
+      }
+      to {
+        transform:translate(2px,-1px);
+        filter:contrast(1.25);
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+
+
+  /* =========================================================
+     ELEMENTS
+     ========================================================= */
+
+  function makeUI() {
+
+    if (!document.getElementById("tlrMemoryText")) {
+      const el = document.createElement("div");
+      el.id = "tlrMemoryText";
+      document.body.appendChild(el);
+    }
+
+    if (!document.getElementById("tlrMirrorOverlay")) {
+      const el = document.createElement("div");
+      el.id = "tlrMirrorOverlay";
+      document.body.appendChild(el);
+    }
+
+    if (!document.getElementById("tlrChapter3")) {
+      const el = document.createElement("div");
+      el.id = "tlrChapter3";
+
+      el.innerHTML = `
+        <div>
+          <div class="tlr-ch3-title">
+            CHAPTER III
+          </div>
+
+          <div class="tlr-ch3-sub">
+            MEMORY DOES NOT FORGET
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(el);
+    }
+
+    if (!document.getElementById("tlrMemoryPanel")) {
+      const el = document.createElement("div");
+      el.id = "tlrMemoryPanel";
+      document.body.appendChild(el);
+    }
+  }
+
+
+  /* =========================================================
+     MESSAGE
+     ========================================================= */
+
+  function memoryMessage(text, duration = 2200) {
+
+    const el = document.getElementById(
+      "tlrMemoryText"
+    );
+
+    if (!el) return;
+
+    el.textContent = text;
+    el.classList.add("show");
+
+    clearTimeout(el._timer);
+
+    el._timer = setTimeout(() => {
+      el.classList.remove("show");
+    }, duration);
+  }
+
+
+  /* =========================================================
+     MEMORY PANEL
+     ========================================================= */
+
+  function updateMemoryPanel() {
+
+    const el = document.getElementById(
+      "tlrMemoryPanel"
+    );
+
+    if (!el) return;
+
+    const remembered =
+      Object.values(P9.memories)
+        .filter(Boolean)
+        .length;
+
+    el.textContent =
+      `MEMORY ${remembered}/${Object.keys(P9.memories).length}`;
+  }
+
+
+  /* =========================================================
+     TRACK STORY ACTIONS
+     ========================================================= */
+
+  function trackMemories() {
+
+    if (typeof story === "undefined") return;
+
+    if (story.photograph)
+      remember("inspectedPhoto");
+
+    if (story.radio)
+      remember("heardRadio");
+
+    if (story.mirror)
+      remember("sawMirror");
+
+    if (story.letter)
+      remember("foundLetter");
+
+    if (story.truthFound)
+      remember("foundTruth");
+
+    if (story.entityAwake)
+      remember("openedFinalDoor");
+
+    if (story.secretSolved)
+      remember("enteredSecret");
+
+    if (
+      typeof entity !== "undefined" &&
+      entity.visible
+    ) {
+      if (!P9.memories.sawEntity) {
+        remember("sawEntity");
+      }
+    }
+
+    updateMemoryPanel();
+  }
+
+
+  /* =========================================================
+     MIRROR WORLD
+     ========================================================= */
+
+  function enterMirrorWorld() {
+
+    if (P9.mirrorWorld) return;
+
+    P9.mirrorWorld = true;
+    P9.mirrorVisits++;
+
+    const overlay =
+      document.getElementById(
+        "tlrMirrorOverlay"
+      );
+
+    overlay.classList.add("active");
+
+    memoryMessage(
+      "PANTULANMU TIDAK BERGERAK.",
+      3200
+    );
+
+    setTimeout(() => {
+
+      if (
+        typeof currentRoom !== "undefined"
+      ) {
+
+        memoryMessage(
+          "KAMU MASUK KE SISI YANG LAIN.",
+          3000
+        );
+
+        try {
+          document.body.classList.add(
+            "tlr-memory-glitch"
+          );
+        } catch (e) {}
+      }
+
+    }, 1200);
+
+    setTimeout(() => {
+
+      overlay.classList.remove("active");
+
+      document.body.classList.remove(
+        "tlr-memory-glitch"
+      );
+
+      P9.mirrorWorld = false;
+
+    }, 5200);
+  }
+
+
+  /* =========================================================
+     MIRROR TRIGGER
+     ========================================================= */
+
+  function checkMirror() {
+
+    if (
+      typeof story === "undefined" ||
+      !story.mirror
+    ) return;
+
+    if (
+      typeof currentRoom === "undefined" ||
+      currentRoom !== "bedroom"
+    ) return;
+
+    if (P9.mirrorVisits >= 2) return;
+
+    /*
+      Tekan M ketika berada di bedroom
+      untuk melihat sisi cermin.
+    */
+  }
+
+
+  /* =========================================================
+     MEMORY WHISPERS
+     ========================================================= */
+
+  function memoryWhisper() {
+
+    if (
+      typeof story === "undefined" ||
+      !story.mirror
+    ) return;
+
+    const now = Date.now();
+
+    if (now - P9.lastWhisper < 12000)
+      return;
+
+    if (Math.random() > 0.18)
+      return;
+
+    P9.lastWhisper = now;
+
+    const whispers = [
+      "KAMU PERNAH DI SINI.",
+      "JANGAN ULANGI KESALAHANMU.",
+      "KAMU SUDAH PERNAH MEMBUKA PINTU ITU.",
+      "RUMAH INI MENGENALMU.",
+      "AKU INGAT APA YANG KAMU LAKUKAN.",
+      "FOTO ITU BELUM SELESAI.",
+      "ADA SATU HAL YANG KAMU LUPAKAN."
+    ];
+
+    memoryMessage(
+      whispers[
+        Math.floor(
+          Math.random() * whispers.length
+        )
+      ],
+      2400
+    );
+  }
+
+
+  /* =========================================================
+     PHOTO MEMORY
+     ========================================================= */
+
+  function updatePhotoMemory() {
+
+    if (
+      typeof story === "undefined" ||
+      !story.photograph
+    ) return;
+
+    if (P9.photoVersion >= 3)
+      return;
+
+    if (
+      P9.memoryLevel >= 3 &&
+      P9.photoVersion === 0
+    ) {
+
+      P9.photoVersion = 1;
+
+      memoryMessage(
+        "ADA SATU ORANG YANG SEHARUSNYA TIDAK ADA DI FOTO.",
+        3200
+      );
+    }
+
+    if (
+      P9.memoryLevel >= 5 &&
+      P9.photoVersion === 1
+    ) {
+
+      P9.photoVersion = 2;
+
+      memoryMessage(
+        "POSISINYA BERUBAH.",
+        2600
+      );
+    }
+
+    if (
+      P9.memoryLevel >= 7 &&
+      P9.photoVersion === 2
+    ) {
+
+      P9.photoVersion = 3;
+
+      memoryMessage(
+        "SEKARANG DIA MELIHAT KE ARAHMU.",
+        3000
+      );
+    }
+  }
+
+
+  /* =========================================================
+     HOUSE MEMORY
+     ========================================================= */
+
+  function updateHouseMemory() {
+
+    if (
+      typeof story === "undefined"
+    ) return;
+
+    if (
+      P9.memoryLevel >= 4 &&
+      P9.houseShift === 0
+    ) {
+
+      P9.houseShift = 1;
+
+      memoryMessage(
+        "RUMAHNYA TERASA BERBEDA.",
+        2600
+      );
+    }
+
+    if (
+      P9.memoryLevel >= 6 &&
+      P9.houseShift === 1
+    ) {
+
+      P9.houseShift = 2;
+
+      memoryMessage(
+        "ADA RUANGAN YANG TIDAK KAMU INGAT.",
+        2800
+      );
+    }
+  }
+
+
+  /* =========================================================
+     CHAPTER III
+     ========================================================= */
+
+  function startChapter3() {
+
+    if (P9.chapter3) return;
+
+    if (
+      typeof story === "undefined"
+    ) return;
+
+    if (
+      !story.truthFound ||
+      !story.entityAwake ||
+      P9.memoryLevel < 6
+    ) return;
+
+    P9.chapter3 = true;
+    story.chapter3 = true;
+
+    const screen =
+      document.getElementById(
+        "tlrChapter3"
+      );
+
+    screen.classList.add("active");
+
+    memoryMessage(
+      "SESUATU DALAM RUMAH ITU MENGINGATMU.",
+      3500
+    );
+
+    setTimeout(() => {
+      screen.classList.remove("active");
+    }, 5000);
+  }
+
+
+  /* =========================================================
+     SECRET ROOM II
+     ========================================================= */
+
+  function unlockSecretRoom2() {
+
+    if (P9.secretRoom2) return;
+
+    if (
+      !P9.chapter3 ||
+      P9.photoVersion < 3 ||
+      P9.mirrorVisits < 2
+    ) return;
+
+    P9.secretRoom2 = true;
+
+    story.secretRoom2 = true;
+
+    memoryMessage(
+      "KAMU MENEMUKAN RUANGAN YANG SEHARUSNYA TIDAK ADA.",
+      4000
+    );
+
+    if (
+      typeof diary !== "undefined" &&
+      Array.isArray(diary)
+    ) {
+      diary.push(
+        "Secret Room II — Ruangan yang muncul setelah rumah mengingat semuanya."
+      );
+    }
+  }
+
+
+  /* =========================================================
+     MEMORY ENDING
+     ========================================================= */
+
+  function checkMemoryEnding() {
+
+    if (
+      typeof story === "undefined"
+    ) return;
+
+    if (
+      P9.secretRoom2 &&
+      P9.photoVersion >= 3 &&
+      P9.mirrorVisits >= 2 &&
+      story.truthFound
+    ) {
+
+      P9.memoryEndingReady = true;
+      story.memoryEndingReady = true;
+    }
+  }
+
+
+  function activateMemoryEnding() {
+
+    if (!P9.memoryEndingReady)
+      return;
+
+    memoryMessage(
+      "KALI INI, RUMAH TIDAK MEMBIARKANMU LUPA.",
+      5000
+    );
+
+    setTimeout(() => {
+
+      if (
+        typeof showScreen === "function"
+      ) {
+        showScreen("ending");
+      }
+
+      const title =
+        document.querySelector(
+          "#endingScreen h1, #endingScreen .endingTitle"
+        );
+
+      if (title) {
+        title.textContent =
+          "MEMORY — TRUE ENDING";
+      }
+
+    }, 4500);
+  }
+
+
+  /* =========================================================
+     KEYBOARD
+     ========================================================= */
+
+  document.addEventListener(
+    "keydown",
+    e => {
+
+      const key =
+        e.key.toLowerCase();
+
+      /*
+        M = mirror
+      */
+
+      if (key === "m") {
+
+        if (
+          typeof currentRoom !== "undefined" &&
+          currentRoom === "bedroom" &&
+          story.mirror
+        ) {
+          enterMirrorWorld();
+        }
+      }
+
+      /*
+        J = secret memory ending
+      */
+
+      if (key === "j") {
+
+        if (P9.memoryEndingReady) {
+          activateMemoryEnding();
+        }
+      }
+    }
+  );
+
+
+  /* =========================================================
+     INITIALIZATION
+     ========================================================= */
+
+  function initPhase9() {
+
+    if (P9.initialized)
+      return;
+
+    P9.initialized = true;
+
+    loadMemory();
+    makeUI();
+    updateMemoryPanel();
+
+    console.log(
+      "%cTHE LAST ROOM — PHASE 9: MEMORY",
+      "color:#aaa;font-size:16px;font-weight:bold"
+    );
+  }
+
+
+  /* =========================================================
+     MAIN MEMORY UPDATE
+     ========================================================= */
+
+  setInterval(() => {
+
+    if (
+      typeof gameTime === "undefined"
+    ) return;
+
+    initPhase9();
+
+    trackMemories();
+    memoryWhisper();
+    updatePhotoMemory();
+    updateHouseMemory();
+    startChapter3();
+    unlockSecretRoom2();
+    checkMemoryEnding();
+    checkMirror();
+
+  }, 1500);
+
+
+})();

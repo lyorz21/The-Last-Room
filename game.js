@@ -1,35 +1,11 @@
 /* =========================================================
    THE LAST ROOM — FORGOTTEN
-   PHASE 4 — THE HOUSE REMEMBERS
-
-   FULL REPLACEMENT FOR PHASE 3 game.js
-
-   FEATURES:
-   - 4 rooms
-   - Room transitions
-   - Story progression
-   - 03:17 puzzle
-   - Family photograph clue
-   - Radio clue
-   - Bedroom puzzle
-   - Basement puzzle
-   - Keys & inventory
-   - Entity roaming
-   - Room-specific atmosphere
-   - Dynamic horror events
-   - Achievement system
-   - Multiple ending preparation
-   - Secret clue
-   - Portrait + landscape compatible
-========================================================= */
-
-
-/* =========================================================
-   BASIC DOM
+   PHASE 5 — REALISTIC HOUSE
+   FULL game.js REPLACEMENT
 ========================================================= */
 
 const canvas = document.getElementById("gameCanvas");
-const ctx = canvas ? canvas.getContext("2d") : null;
+const ctx = canvas?.getContext("2d");
 
 const screens = {
     cinematic: document.getElementById("cinematicScreen"),
@@ -38,240 +14,340 @@ const screens = {
     gameover: document.getElementById("gameOverScreen")
 };
 
-
 /* =========================================================
-   SCREEN SYSTEM
+   GAME
 ========================================================= */
 
-function showScreen(name) {
-
-    Object.values(screens).forEach(screen => {
-
-        if (screen) {
-            screen.classList.remove("active");
-        }
-
-    });
-
-    if (screens[name]) {
-        screens[name].classList.add("active");
-    }
-}
-
-
-/* =========================================================
-   GAME STATE
-========================================================= */
+let gameStarted = false;
+let gameOver = false;
 
 let playerName = "Unknown";
-
 let currentRoom = "hallway";
 
 let battery = 100;
 let flashlight = true;
 
-let gameStarted = false;
-let gameOver = false;
-
 let fear = 0;
+let gameTime = 0;
 
-let totalPlayTime = 0;
+let inventory = [];
+let diary = [];
 
-let interactionCooldown = 0;
+const keys = {};
 
 const player = {
-
     x: 450,
     y: 300,
-
     speed: 2.5,
+    size: 13
+};
 
-    size: 14
+/* =========================================================
+   STORY
+========================================================= */
+
+const story = {
+
+    photograph: false,
+    clock: false,
+    radio: false,
+    code: false,
+
+    bedroom: false,
+    mirror: false,
+    basement: false,
+    letter: false,
+
+    finalDoor: false,
+    houseKey: false,
+
+    entityAwake: false,
+
+    secret: false,
+
+    escaped: false
 
 };
 
-
 /* =========================================================
-   ROOM DATA
+   ROOMS
 ========================================================= */
 
 const rooms = {
 
     hallway: {
-
         name: "HALLWAY",
-
-        subtitle: "The corridor that remembers",
-
-        floor: "#252525",
-
-        ambient: 38,
-
-        exits: {
-
-            living: {
-                x: 0,
-                y: 220,
-                width: 45,
-                height: 150
-            },
-
-            bedroom: {
-                x: 400,
-                y: 0,
-                width: 100,
-                height: 40
-            },
-
-            basement: {
-                x: 730,
-                y: 520,
-                width: 120,
-                height: 45
-            }
-
-        }
-
+        floor: "#302b27",
+        wall: "#171513",
+        light: .42,
+        ambience: "wood"
     },
 
     living: {
-
         name: "LIVING ROOM",
-
-        subtitle: "The room where they waited",
-
-        floor: "#292929",
-
-        ambient: 42,
-
-        exits: {
-
-            hallway: {
-                x: 850,
-                y: 220,
-                width: 45,
-                height: 150
-            }
-
-        }
-
+        floor: "#34302d",
+        wall: "#191716",
+        light: .48,
+        ambience: "oldroom"
     },
 
     bedroom: {
-
         name: "BEDROOM",
-
-        subtitle: "The room nobody opened",
-
-        floor: "#202020",
-
-        ambient: 31,
-
-        exits: {
-
-            hallway: {
-                x: 400,
-                y: 550,
-                width: 100,
-                height: 45
-            }
-
-        }
-
+        floor: "#282628",
+        wall: "#121112",
+        light: .27,
+        ambience: "silent"
     },
 
     basement: {
-
         name: "BASEMENT",
-
-        subtitle: "Below the house",
-
-        floor: "#151515",
-
-        ambient: 25,
-
-        exits: {
-
-            hallway: {
-                x: 730,
-                y: 0,
-                width: 120,
-                height: 45
-            }
-
-        }
-
+        floor: "#171716",
+        wall: "#0c0c0b",
+        light: .12,
+        ambience: "basement"
     }
 
 };
 
-
 /* =========================================================
-   STORY FLAGS
+   AUDIO
 ========================================================= */
 
-const story = {
+let audioCtx = null;
+let masterGain = null;
 
-    photographFound: false,
+function initAudio() {
 
-    clockInspected: false,
+    if (audioCtx) return;
 
-    radioHeard: false,
+    audioCtx = new (
+        window.AudioContext ||
+        window.webkitAudioContext
+    )();
 
-    radioCodeFound: false,
+    masterGain =
+        audioCtx.createGain();
 
-    bedroomUnlocked: false,
+    masterGain.gain.value = .22;
 
-    basementUnlocked: false,
+    masterGain.connect(
+        audioCtx.destination
+    );
 
-    basementClueFound: false,
+    startHouseHum();
+}
 
-    mirrorClueFound: false,
+function sound(
+    freq = 200,
+    duration = .2,
+    volume = .04,
+    type = "sine"
+) {
 
-    secretFound: false,
+    if (!audioCtx) return;
 
-    finalDoorUnlocked: false,
+    const osc =
+        audioCtx.createOscillator();
 
-    entityAwakened: false
+    const gain =
+        audioCtx.createGain();
 
-};
+    osc.type = type;
 
+    osc.frequency.value =
+        freq;
+
+    gain.gain.setValueAtTime(
+        volume,
+        audioCtx.currentTime
+    );
+
+    gain.gain.exponentialRampToValueAtTime(
+        .001,
+        audioCtx.currentTime + duration
+    );
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start();
+
+    osc.stop(
+        audioCtx.currentTime +
+        duration
+    );
+}
+
+function startHouseHum() {
+
+    const osc =
+        audioCtx.createOscillator();
+
+    const gain =
+        audioCtx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.value = 39;
+
+    gain.gain.value = .025;
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start();
+}
+
+function whisper() {
+
+    sound(
+        140,
+        .7,
+        .035,
+        "sawtooth"
+    );
+
+    setTimeout(() => {
+
+        sound(
+            72,
+            .5,
+            .025,
+            "triangle"
+        );
+
+    }, 300);
+}
+
+function footstep() {
+
+    sound(
+        currentRoom === "basement"
+            ? 58
+            : 82,
+        .06,
+        .028,
+        "triangle"
+    );
+}
+
+function doorSound() {
+
+    sound(
+        60,
+        .45,
+        .06,
+        "sawtooth"
+    );
+
+    setTimeout(() => {
+
+        sound(
+            42,
+            .3,
+            .035,
+            "triangle"
+        );
+
+    }, 180);
+}
+
+/* =========================================================
+   MESSAGE
+========================================================= */
+
+let messageTimeout;
+
+function message(text) {
+
+    const el =
+        document.getElementById(
+            "storyMessage"
+        );
+
+    if (!el) return;
+
+    el.textContent = text;
+
+    el.classList.add("show");
+
+    clearTimeout(
+        messageTimeout
+    );
+
+    messageTimeout =
+        setTimeout(() => {
+
+            el.classList.remove("show");
+
+        }, 2800);
+}
+
+/* =========================================================
+   OBJECTIVE
+========================================================= */
+
+function objective(text) {
+
+    const el =
+        document.getElementById(
+            "objective"
+        );
+
+    if (el) {
+        el.textContent = text;
+    }
+}
 
 /* =========================================================
    INVENTORY
 ========================================================= */
 
-let inventory = [];
+function addItem(item) {
 
-
-function addInventory(item) {
-
-    if (inventory.includes(item)) {
-        return;
-    }
+    if (
+        inventory.includes(item)
+    ) return;
 
     inventory.push(item);
 
     renderInventory();
 
-    playTone(
-        500,
-        0.12,
-        0.04,
-        "sine"
+    sound(
+        420,
+        .12,
+        .04
     );
-
 }
 
+function renderInventory() {
+
+    const list =
+        document.getElementById(
+            "inventoryList"
+        );
+
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    inventory.forEach(item => {
+
+        const el =
+            document.createElement("div");
+
+        el.textContent =
+            "◆ " + item;
+
+        list.appendChild(el);
+
+    });
+}
 
 /* =========================================================
    DIARY
 ========================================================= */
 
-let diary = [];
-
-
-function addDiary(title, text) {
+function diaryEntry(title, text) {
 
     diary.push({
         title,
@@ -279,14 +355,14 @@ function addDiary(title, text) {
     });
 
     renderDiary();
-
 }
-
 
 function renderDiary() {
 
     const list =
-        document.getElementById("diaryList");
+        document.getElementById(
+            "diaryList"
+        );
 
     if (!list) return;
 
@@ -305,137 +381,62 @@ function renderDiary() {
         list.appendChild(article);
 
     });
-
 }
 
-
 /* =========================================================
-   ACHIEVEMENT SYSTEM
+   ACHIEVEMENTS
 ========================================================= */
 
-const achievements = {
+const achievements = {};
 
-    CURIOUS: {
-        title: "THE CURIOUS",
-        description: "Inspect the old family photograph.",
-        unlocked: false
-    },
+function achievement(
+    id,
+    title,
+    description
+) {
 
-    THREE_SEVENTEEN: {
-        title: "03:17",
-        description: "Discover the time hidden in the house.",
-        unlocked: false
-    },
+    if (achievements[id]) return;
 
-    LISTEN: {
-        title: "LISTEN",
-        description: "Listen to the mysterious radio.",
-        unlocked: false
-    },
-
-    THE_ROOM: {
-        title: "THE LAST ROOM",
-        description: "Enter the forbidden bedroom.",
-        unlocked: false
-    },
-
-    BELOW: {
-        title: "BELOW",
-        description: "Descend into the basement.",
-        unlocked: false
-    },
-
-    WATCHED: {
-        title: "I SAW YOU",
-        description: "Survive the Entity's appearance.",
-        unlocked: false
-    },
-
-    SECRET: {
-        title: "FORGOTTEN",
-        description: "Discover the hidden message.",
-        unlocked: false
-    }
-
-};
-
-
-function unlockAchievement(id) {
-
-    const achievement =
-        achievements[id];
-
-    if (!achievement) return;
-
-    if (achievement.unlocked) return;
-
-    achievement.unlocked = true;
+    achievements[id] = true;
 
     showAchievement(
-        achievement.title,
-        achievement.description
+        title,
+        description
     );
-
 }
-
-
-/* =========================================================
-   ACHIEVEMENT UI
-========================================================= */
-
-function createAchievementUI() {
-
-    if (
-        document.getElementById(
-            "achievementContainer"
-        )
-    ) {
-        return;
-    }
-
-    const container =
-        document.createElement("div");
-
-    container.id =
-        "achievementContainer";
-
-    Object.assign(
-        container.style,
-        {
-
-            position: "fixed",
-
-            top: "20px",
-
-            right: "20px",
-
-            width: "290px",
-
-            zIndex: "10000",
-
-            pointerEvents: "none"
-
-        }
-    );
-
-    document.body.appendChild(
-        container
-    );
-
-}
-
 
 function showAchievement(
     title,
     description
 ) {
 
-    createAchievementUI();
-
-    const container =
+    let box =
         document.getElementById(
-            "achievementContainer"
+            "achievementBox"
         );
+
+    if (!box) {
+
+        box =
+            document.createElement("div");
+
+        box.id =
+            "achievementBox";
+
+        Object.assign(
+            box.style,
+            {
+                position: "fixed",
+                right: "18px",
+                top: "18px",
+                width: "270px",
+                zIndex: "10000",
+                pointerEvents: "none"
+            }
+        );
+
+        document.body.appendChild(box);
+    }
 
     const card =
         document.createElement("div");
@@ -443,274 +444,96 @@ function showAchievement(
     Object.assign(
         card.style,
         {
-
             background:
                 "rgba(8,8,8,.94)",
 
+            color: "#fff",
+
+            padding: "14px",
+
+            marginBottom: "10px",
+
             border:
-                "1px solid rgba(255,255,255,.18)",
+                "1px solid rgba(255,255,255,.15)",
 
-            padding:
-                "14px 16px",
-
-            marginBottom:
-                "10px",
-
-            borderRadius:
-                "6px",
-
-            color:
-                "#fff",
+            borderRadius: "6px",
 
             fontFamily:
-                "Inter, sans-serif",
+                "Inter,sans-serif",
 
             boxShadow:
-                "0 10px 30px rgba(0,0,0,.45)",
-
-            transform:
-                "translateX(120%)",
-
-            transition:
-                "transform .4s ease"
-
+                "0 10px 30px rgba(0,0,0,.5)"
         }
     );
 
     card.innerHTML = `
-        <div style="
-            font-size:10px;
-            letter-spacing:3px;
-            opacity:.55;
-            margin-bottom:6px;
+        <small style="
+            opacity:.5;
+            letter-spacing:2px;
         ">
-            ACHIEVEMENT UNLOCKED
-        </div>
+            ACHIEVEMENT
+        </small>
 
         <div style="
             font-family:Cinzel,serif;
+            margin-top:6px;
             font-size:17px;
-            margin-bottom:5px;
         ">
             ${title}
         </div>
 
         <div style="
-            font-size:12px;
             opacity:.65;
+            font-size:12px;
+            margin-top:5px;
         ">
             ${description}
         </div>
     `;
 
-    container.appendChild(card);
+    box.appendChild(card);
 
-    requestAnimationFrame(() => {
-
-        card.style.transform =
-            "translateX(0)";
-
-    });
-
-    playTone(
-        660,
+    sound(
+        620,
         .12,
-        .05,
-        "sine"
+        .045
     );
 
     setTimeout(() => {
 
-        card.style.transform =
-            "translateX(120%)";
+        card.remove();
 
-        setTimeout(() => {
-            card.remove();
-        }, 500);
-
-    }, 3800);
-
+    }, 4000);
 }
-
 
 /* =========================================================
-   AUDIO ENGINE
+   FEAR
 ========================================================= */
 
-let audioCtx = null;
-let masterGain = null;
-let ambientGain = null;
+function addFear(amount) {
 
-function initAudio() {
+    fear += amount;
 
-    if (audioCtx) return;
-
-    audioCtx =
-        new (
-            window.AudioContext ||
-            window.webkitAudioContext
-        )();
-
-    masterGain =
-        audioCtx.createGain();
-
-    masterGain.gain.value =
-        0.24;
-
-    masterGain.connect(
-        audioCtx.destination
-    );
-
-    ambientGain =
-        audioCtx.createGain();
-
-    ambientGain.gain.value =
-        0.055;
-
-    ambientGain.connect(
-        masterGain
-    );
-
-    createAmbient();
-
+    fear =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                fear
+            )
+        );
 }
 
+function calm(amount) {
 
-function playTone(
-    frequency = 200,
-    duration = .2,
-    volume = .05,
-    type = "sine"
-) {
+    fear -= amount;
 
-    if (!audioCtx) return;
-
-    const osc =
-        audioCtx.createOscillator();
-
-    const gain =
-        audioCtx.createGain();
-
-    osc.type =
-        type;
-
-    osc.frequency.value =
-        frequency;
-
-    gain.gain.setValueAtTime(
-        volume,
-        audioCtx.currentTime
-    );
-
-    gain.gain.exponentialRampToValueAtTime(
-        .001,
-        audioCtx.currentTime +
-        duration
-    );
-
-    osc.connect(gain);
-
-    gain.connect(
-        masterGain
-    );
-
-    osc.start();
-
-    osc.stop(
-        audioCtx.currentTime +
-        duration
-    );
-
+    fear =
+        Math.max(
+            0,
+            fear
+        );
 }
-
-
-function createAmbient() {
-
-    if (!audioCtx) return;
-
-    const osc =
-        audioCtx.createOscillator();
-
-    osc.type =
-        "sine";
-
-    osc.frequency.value =
-        38;
-
-    osc.connect(
-        ambientGain
-    );
-
-    osc.start();
-
-}
-
-
-function roomSound() {
-
-    if (!audioCtx) return;
-
-    const data =
-        rooms[currentRoom];
-
-    if (!data) return;
-
-    playTone(
-        data.ambient,
-        .8,
-        .015,
-        "sine"
-    );
-
-}
-
-
-/* =========================================================
-   FOOTSTEPS
-========================================================= */
-
-let lastFootstep = 0;
-
-function footstep() {
-
-    const now =
-        performance.now();
-
-    if (
-        now - lastFootstep <
-        290
-    ) {
-        return;
-    }
-
-    lastFootstep =
-        now;
-
-    let frequency = 90;
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-        frequency = 60;
-    }
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-        frequency = 72;
-    }
-
-    playTone(
-        frequency,
-        .07,
-        .035,
-        "triangle"
-    );
-
-}
-
 
 /* =========================================================
    ENTITY
@@ -730,144 +553,62 @@ const entity = {
 
     timer: 0,
 
-    aggression: 0,
-
-    distance: 999
-
+    aggression: 0
 };
-
-
-const ENTITY_STATES = {
-
-    HIDDEN:
-        "hidden",
-
-    WATCHING:
-        "watching",
-
-    NEAR:
-        "near",
-
-    ATTACK:
-        "attack"
-
-};
-
-
-/* =========================================================
-   ENTITY AUDIO
-========================================================= */
-
-function entityWhisper() {
-
-    if (!audioCtx) return;
-
-    playTone(
-        150,
-        .8,
-        .04,
-        "sawtooth"
-    );
-
-    setTimeout(() => {
-
-        playTone(
-            75,
-            .6,
-            .025,
-            "triangle"
-        );
-
-    }, 300);
-
-}
-
-
-function entityBreathing() {
-
-    playTone(
-        55,
-        .55,
-        .045,
-        "sawtooth"
-    );
-
-    setTimeout(() => {
-
-        playTone(
-            48,
-            .6,
-            .04,
-            "sawtooth"
-        );
-
-    }, 650);
-
-}
-
-
-/* =========================================================
-   ENTITY SPAWN
-========================================================= */
 
 function spawnEntity() {
-
-    const margin = 70;
 
     entity.room =
         currentRoom;
 
     entity.x =
-        margin +
+        80 +
         Math.random() *
-        (
-            canvas.width -
-            margin * 2
-        );
+        (canvas.width - 160);
 
     entity.y =
-        margin +
+        80 +
         Math.random() *
-        (
-            canvas.height -
-            margin * 2
-        );
+        (canvas.height - 160);
 
     entity.visible =
         true;
 
     entity.state =
-        ENTITY_STATES.WATCHING;
+        "watching";
 
     entity.timer =
         0;
 
-    story.entityAwakened =
+    story.entityAwake =
         true;
 
-    unlockAchievement(
-        "WATCHED"
+    whisper();
+
+    message(
+        "Ada sesuatu di dalam rumah ini."
     );
-
-    storyMessage(
-        "Aku tidak sendirian."
-    );
-
-    entityWhisper();
-
 }
-
-
-/* =========================================================
-   ENTITY UPDATE
-========================================================= */
 
 function updateEntity() {
 
     if (
         !gameStarted ||
         gameOver
+    ) return;
+
+    if (
+        !story.entityAwake
     ) {
+
+        if (
+            gameTime > 1000
+        ) {
+
+            spawnEntity();
+
+        }
+
         return;
     }
 
@@ -880,7 +621,6 @@ function updateEntity() {
             false;
 
         return;
-
     }
 
     entity.timer++;
@@ -893,155 +633,81 @@ function updateEntity() {
         player.y -
         entity.y;
 
-    entity.distance =
+    const dist =
         Math.sqrt(
             dx * dx +
             dy * dy
         );
 
-
-    /* HIDDEN */
-
     if (
         entity.state ===
-        ENTITY_STATES.HIDDEN
+        "watching"
     ) {
 
-        if (
-            entity.timer >
-            900 +
-            Math.random() * 900
-        ) {
-
-            entity.timer =
-                0;
-
-            spawnEntity();
-
-        }
-
-    }
-
-
-    /* WATCHING */
-
-    else if (
-        entity.state ===
-        ENTITY_STATES.WATCHING
-    ) {
-
-        addFear(
-            .008
-        );
+        addFear(.006);
 
         if (
-            entity.timer %
-            190 ===
-            0
+            entity.timer % 220 === 0
         ) {
 
-            entityWhisper();
+            whisper();
 
         }
 
         if (
-            entity.distance <
-            250
+            dist < 230
         ) {
 
             entity.state =
-                ENTITY_STATES.NEAR;
+                "near";
 
             entity.timer =
                 0;
-
         }
-
     }
-
-
-    /* NEAR */
 
     else if (
         entity.state ===
-        ENTITY_STATES.NEAR
+        "near"
     ) {
 
-        addFear(
-            .025
-        );
-
-        entity.aggression +=
-            .012;
-
-        const distance =
-            entity.distance;
+        addFear(.018);
 
         if (
-            distance > 0
+            dist > 0
         ) {
 
             const speed =
                 .12 +
                 entity.aggression *
-                .012;
+                .01;
 
             entity.x +=
-                (
-                    dx /
-                    distance
-                ) *
+                dx / dist *
                 speed;
 
             entity.y +=
-                (
-                    dy /
-                    distance
-                ) *
+                dy / dist *
                 speed;
+        }
+
+        if (
+            entity.timer % 180 === 0
+        ) {
+
+            whisper();
 
         }
 
         if (
-            entity.timer %
-            160 ===
-            0
+            dist < 90
         ) {
 
-            entityBreathing();
+            jumpscare();
 
         }
-
-        if (
-            entity.distance <
-            100
-        ) {
-
-            entity.state =
-                ENTITY_STATES.ATTACK;
-
-        }
-
     }
-
-
-    /* ATTACK */
-
-    else if (
-        entity.state ===
-        ENTITY_STATES.ATTACK
-    ) {
-
-        triggerJumpscare();
-
-    }
-
 }
-
-
-/* =========================================================
-   ENTITY DRAW
-========================================================= */
 
 function drawEntity() {
 
@@ -1049,56 +715,54 @@ function drawEntity() {
         !entity.visible ||
         entity.room !==
         currentRoom
-    ) {
-        return;
-    }
+    ) return;
 
     ctx.save();
 
     const alpha =
         entity.state ===
-        ENTITY_STATES.WATCHING
-            ? .25
-            : .5;
+        "watching"
+            ? .22
+            : .48;
 
     ctx.globalAlpha =
         alpha;
 
-    const gradient =
+    const aura =
         ctx.createRadialGradient(
             entity.x,
             entity.y,
-            10,
+            5,
             entity.x,
             entity.y,
-            100
+            120
         );
 
-    gradient.addColorStop(
+    aura.addColorStop(
         0,
         "rgba(0,0,0,.9)"
     );
 
-    gradient.addColorStop(
-        .55,
-        "rgba(0,0,0,.5)"
+    aura.addColorStop(
+        .5,
+        "rgba(0,0,0,.45)"
     );
 
-    gradient.addColorStop(
+    aura.addColorStop(
         1,
         "rgba(0,0,0,0)"
     );
 
     ctx.fillStyle =
-        gradient;
+        aura;
 
     ctx.beginPath();
 
     ctx.ellipse(
         entity.x,
         entity.y,
-        48,
-        105,
+        50,
+        110,
         0,
         0,
         Math.PI * 2
@@ -1106,11 +770,8 @@ function drawEntity() {
 
     ctx.fill();
 
-
-    /* HEAD */
-
     ctx.fillStyle =
-        "#050505";
+        "#030303";
 
     ctx.beginPath();
 
@@ -1124,11 +785,8 @@ function drawEntity() {
 
     ctx.fill();
 
-
-    /* EYES */
-
     ctx.fillStyle =
-        "rgba(220,220,220,.7)";
+        "rgba(230,230,230,.7)";
 
     ctx.fillRect(
         entity.x - 13,
@@ -1145,1154 +803,194 @@ function drawEntity() {
     );
 
     ctx.restore();
-
 }
-
 
 /* =========================================================
    JUMPSCARE
 ========================================================= */
 
-let jumpscareActive =
-    false;
+let scareLock = false;
 
+function jumpscare() {
 
-function createHorrorOverlay() {
+    if (scareLock) return;
 
-    if (
-        document.getElementById(
-            "phase4HorrorOverlay"
-        )
-    ) {
-        return;
-    }
+    scareLock = true;
 
-    const overlay =
+    addFear(30);
+
+    const flash =
         document.createElement("div");
 
-    overlay.id =
-        "phase4HorrorOverlay";
-
     Object.assign(
-        overlay.style,
+        flash.style,
         {
-
-            position:
-                "fixed",
-
-            inset:
-                "0",
-
+            position: "fixed",
+            inset: "0",
             background:
-                "rgba(0,0,0,0)",
-
-            pointerEvents:
-                "none",
-
-            zIndex:
-                "9998",
-
-            transition:
-                "background .15s"
-
+                "rgba(255,255,255,.18)",
+            zIndex: "9999",
+            pointerEvents: "none"
         }
     );
 
     document.body.appendChild(
-        overlay
+        flash
     );
 
-
-    const style =
-        document.createElement(
-            "style"
-        );
-
-    style.textContent = `
-
-        @keyframes phase4Shake {
-
-            0% {
-                transform:translate(0,0);
-            }
-
-            20% {
-                transform:translate(-7px,4px);
-            }
-
-            40% {
-                transform:translate(6px,-5px);
-            }
-
-            60% {
-                transform:translate(-4px,-3px);
-            }
-
-            80% {
-                transform:translate(5px,4px);
-            }
-
-            100% {
-                transform:translate(0,0);
-            }
-
-        }
-
-        .phase4-shake {
-
-            animation:
-                phase4Shake
-                .08s
-                infinite;
-
-        }
-
-    `;
-
-    document.head.appendChild(
-        style
-    );
-
-}
-
-
-function triggerJumpscare() {
-
-    if (
-        jumpscareActive
-    ) {
-        return;
-    }
-
-    jumpscareActive =
-        true;
-
-    createHorrorOverlay();
-
-    const overlay =
-        document.getElementById(
-            "phase4HorrorOverlay"
-        );
-
-    if (overlay) {
-
-        overlay.style.background =
-            "rgba(255,255,255,.12)";
-
-    }
-
-    document.body.classList.add(
-        "phase4-shake"
-    );
-
-    playTone(
+    sound(
         55,
         .8,
         .14,
         "sawtooth"
     );
 
-    setTimeout(() => {
+    message(
+        "JANGAN MENATAPNYA."
+    );
 
-        if (overlay) {
-
-            overlay.style.background =
-                "rgba(0,0,0,.85)";
-
-        }
-
-        storyMessage(
-            "Ia berdiri tepat di depanku."
-        );
-
-    }, 180);
+    document.body.style.transform =
+        "translate(4px,-3px)";
 
     setTimeout(() => {
 
-        if (overlay) {
+        document.body.style.transform =
+            "translate(-5px,4px)";
 
-            overlay.style.background =
-                "rgba(0,0,0,0)";
+    }, 80);
 
-        }
+    setTimeout(() => {
 
-        document.body.classList.remove(
-            "phase4-shake"
-        );
+        document.body.style.transform =
+            "";
+
+        flash.remove();
 
         entity.visible =
             false;
 
         entity.state =
-            ENTITY_STATES.HIDDEN;
+            "hidden";
 
         entity.timer =
             0;
 
-        entity.aggression =
-            0;
-
-        jumpscareActive =
+        scareLock =
             false;
 
-        reduceFear(
-            25
+        calm(25);
+
+        achievement(
+            "saw",
+            "I SAW YOU",
+            "Survive an encounter with the Entity."
         );
 
-        storyMessage(
-            "Sosok itu menghilang."
-        );
-
-    }, 1200);
-
+    }, 900);
 }
-
-
-/* =========================================================
-   FEAR SYSTEM
-========================================================= */
-
-function addFear(amount) {
-
-    fear += amount;
-
-    fear =
-        Math.max(
-            0,
-            Math.min(
-                100,
-                fear
-            )
-        );
-
-}
-
-
-function reduceFear(amount) {
-
-    fear -= amount;
-
-    fear =
-        Math.max(
-            0,
-            fear
-        );
-
-}
-
-
-/* =========================================================
-   ROOM TRANSITION
-========================================================= */
-
-function enterRoom(
-    roomName
-) {
-
-    if (
-        !rooms[roomName]
-    ) {
-        return;
-    }
-
-    currentRoom =
-        roomName;
-
-    player.x =
-        canvas.width / 2;
-
-    player.y =
-        canvas.height / 2;
-
-    entity.visible =
-        false;
-
-    entity.state =
-        ENTITY_STATES.HIDDEN;
-
-    entity.timer =
-        0;
-
-    roomSound();
-
-    updateRoomUI();
-
-    checkRoomStory();
-
-}
-
-
-function updateRoomUI() {
-
-    const roomName =
-        document.getElementById(
-            "chapter"
-        );
-
-    if (roomName) {
-
-        roomName.textContent =
-            rooms[
-                currentRoom
-            ].name;
-
-    }
-
-}
-
-
-function checkRoomStory() {
-
-    if (
-        currentRoom ===
-        "living" &&
-        !story.radioHeard
-    ) {
-
-        updateObjective(
-            "Cari sumber suara radio."
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "bedroom" &&
-        !story.mirrorClueFound
-    ) {
-
-        updateObjective(
-            "Periksa kamar yang selama ini dikunci."
-        );
-
-    }
-
-    if (
-        currentRoom ===
-        "basement" &&
-        !story.basementClueFound
-    ) {
-
-        updateObjective(
-            "Cari tahu apa yang disembunyikan di bawah rumah."
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   ROOM EXITS
-========================================================= */
-
-function checkRoomExits() {
-
-    if (!gameStarted) return;
-
-    const width =
-        canvas.width;
-
-    const height =
-        canvas.height;
-
-
-    /* HALLWAY */
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        if (
-            player.x < 30
-        ) {
-
-            enterRoom(
-                "living"
-            );
-
-            return;
-
-        }
-
-
-        if (
-            player.y < 30 &&
-            player.x > 370 &&
-            player.x < 530
-        ) {
-
-            if (
-                story.bedroomUnlocked
-            ) {
-
-                enterRoom(
-                    "bedroom"
-                );
-
-            }
-            else {
-
-                storyMessage(
-                    "Pintu kamar masih terkunci."
-                );
-
-                player.y =
-                    55;
-
-            }
-
-            return;
-
-        }
-
-
-        if (
-            player.y >
-                height - 30 &&
-            player.x >
-                700
-        ) {
-
-            if (
-                story.basementUnlocked
-            ) {
-
-                enterRoom(
-                    "basement"
-                );
-
-            }
-            else {
-
-                storyMessage(
-                    "Aku belum tahu cara membukanya."
-                );
-
-                player.y =
-                    height - 55;
-
-            }
-
-            return;
-
-        }
-
-    }
-
-
-    /* LIVING ROOM */
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        if (
-            player.x >
-            width - 30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-        }
-
-    }
-
-
-    /* BEDROOM */
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        if (
-            player.y >
-            height - 30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-        }
-
-    }
-
-
-    /* BASEMENT */
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        if (
-            player.y <
-            30
-        ) {
-
-            enterRoom(
-                "hallway"
-            );
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   WORLD DRAW
-========================================================= */
-
-function drawWorld() {
-
-    if (!canvas) return;
-
-    const room =
-        rooms[
-            currentRoom
-        ];
-
-    ctx.fillStyle =
-        "#070707";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    /* FLOOR */
-
-    ctx.fillStyle =
-        room.floor;
-
-    ctx.fillRect(
-        30,
-        30,
-        canvas.width - 60,
-        canvas.height - 60
-    );
-
-
-    drawFloorDetails();
-
-    drawRoomObjects();
-
-    drawExits();
-
-    drawEntity();
-
-    drawPlayer();
-
-    drawLighting();
-
-    drawFearOverlay();
-
-}
-
-
-/* =========================================================
-   FLOOR DETAILS
-========================================================= */
-
-function drawFloorDetails() {
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,.025)";
-
-    ctx.lineWidth =
-        1;
-
-
-    const step =
-        currentRoom ===
-        "basement"
-            ? 30
-            : 45;
-
-
-    for (
-        let x = 30;
-        x <
-        canvas.width - 30;
-        x += step
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            x,
-            30
-        );
-
-        ctx.lineTo(
-            x,
-            canvas.height - 30
-        );
-
-        ctx.stroke();
-
-    }
-
-
-    for (
-        let y = 30;
-        y <
-        canvas.height - 30;
-        y += step
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            30,
-            y
-        );
-
-        ctx.lineTo(
-            canvas.width - 30,
-            y
-        );
-
-        ctx.stroke();
-
-    }
-
-}
-
-
-/* =========================================================
-   EXITS DRAW
-========================================================= */
-
-function drawExits() {
-
-    ctx.fillStyle =
-        "rgba(0,0,0,.5)";
-
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        ctx.fillRect(
-            0,
-            220,
-            45,
-            150
-        );
-
-        ctx.fillRect(
-            400,
-            30,
-            100,
-            15
-        );
-
-        ctx.fillRect(
-            730,
-            canvas.height - 45,
-            120,
-            15
-        );
-
-    }
-
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        ctx.fillRect(
-            canvas.width - 45,
-            220,
-            45,
-            150
-        );
-
-    }
-
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        ctx.fillRect(
-            400,
-            canvas.height - 45,
-            100,
-            15
-        );
-
-    }
-
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        ctx.fillRect(
-            730,
-            30,
-            120,
-            15
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   ROOM OBJECTS
-========================================================= */
-
-function drawRoomObjects() {
-
-    /* HALLWAY */
-
-    if (
-        currentRoom ===
-        "hallway"
-    ) {
-
-        drawTable();
-
-        drawPhoto();
-
-        drawClock();
-
-        drawBedroomDoor();
-
-        drawBasementDoor();
-
-    }
-
-
-    /* LIVING */
-
-    if (
-        currentRoom ===
-        "living"
-    ) {
-
-        drawSofa();
-
-        drawRadio();
-
-        drawFamilyPainting();
-
-    }
-
-
-    /* BEDROOM */
-
-    if (
-        currentRoom ===
-        "bedroom"
-    ) {
-
-        drawBed();
-
-        drawMirror();
-
-        drawDiaryBox();
-
-    }
-
-
-    /* BASEMENT */
-
-    if (
-        currentRoom ===
-        "basement"
-    ) {
-
-        drawBasementShelf();
-
-        drawOldBox();
-
-        drawFinalDoor();
-
-    }
-
-}
-
-
-/* =========================================================
-   HALLWAY OBJECTS
-========================================================= */
-
-function drawTable() {
-
-    ctx.fillStyle =
-        "#34271f";
-
-    ctx.fillRect(
-        100,
-        125,
-        130,
-        65
-    );
-
-}
-
-
-function drawPhoto() {
-
-    ctx.fillStyle =
-        "#bda477";
-
-    ctx.fillRect(
-        140,
-        140,
-        55,
-        38
-    );
-
-}
-
-
-function drawClock() {
-
-    ctx.strokeStyle =
-        "#aaa";
-
-    ctx.lineWidth =
-        2;
-
-    ctx.beginPath();
-
-    ctx.arc(
-        700,
-        120,
-        32,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.stroke();
-
-    ctx.fillStyle =
-        "#aaa";
-
-    ctx.font =
-        "12px serif";
-
-    ctx.fillText(
-        "03:17",
-        683,
-        124
-    );
-
-}
-
-
-function drawBedroomDoor() {
-
-    ctx.fillStyle =
-        story.bedroomUnlocked
-            ? "#4b3027"
-            : "#1b1513";
-
-    ctx.fillRect(
-        400,
-        30,
-        100,
-        15
-    );
-
-}
-
-
-function drawBasementDoor() {
-
-    ctx.fillStyle =
-        story.basementUnlocked
-            ? "#4b4034"
-            : "#161616";
-
-    ctx.fillRect(
-        730,
-        canvas.height - 45,
-        120,
-        15
-    );
-
-}
-
-
-/* =========================================================
-   LIVING ROOM OBJECTS
-========================================================= */
-
-function drawSofa() {
-
-    ctx.fillStyle =
-        "#392c29";
-
-    ctx.fillRect(
-        130,
-        360,
-        260,
-        80
-    );
-
-    ctx.fillStyle =
-        "#463634";
-
-    ctx.fillRect(
-        150,
-        335,
-        70,
-        50
-    );
-
-    ctx.fillRect(
-        300,
-        335,
-        70,
-        50
-    );
-
-}
-
-
-function drawRadio() {
-
-    ctx.fillStyle =
-        "#151515";
-
-    ctx.fillRect(
-        580,
-        160,
-        110,
-        65
-    );
-
-    ctx.fillStyle =
-        "#777";
-
-    ctx.fillRect(
-        595,
-        175,
-        75,
-        25
-    );
-
-    ctx.fillStyle =
-        "#333";
-
-    ctx.beginPath();
-
-    ctx.arc(
-        605,
-        212,
-        6,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-}
-
-
-function drawFamilyPainting() {
-
-    ctx.strokeStyle =
-        "#70513d";
-
-    ctx.lineWidth =
-        8;
-
-    ctx.strokeRect(
-        290,
-        80,
-        150,
-        130
-    );
-
-    ctx.fillStyle =
-        "rgba(255,255,255,.025)";
-
-    ctx.fillRect(
-        295,
-        85,
-        140,
-        120
-    );
-
-}
-
-
-/* =========================================================
-   BEDROOM OBJECTS
-========================================================= */
-
-function drawBed() {
-
-    ctx.fillStyle =
-        "#40383a";
-
-    ctx.fillRect(
-        120,
-        150,
-        250,
-        130
-    );
-
-    ctx.fillStyle =
-        "#554c4e";
-
-    ctx.fillRect(
-        135,
-        165,
-        220,
-        90
-    );
-
-}
-
-
-function drawMirror() {
-
-    ctx.strokeStyle =
-        "#6e665e";
-
-    ctx.lineWidth =
-        6;
-
-    ctx.strokeRect(
-        620,
-        90,
-        100,
-        180
-    );
-
-    ctx.fillStyle =
-        "rgba(150,160,170,.08)";
-
-    ctx.fillRect(
-        625,
-        95,
-        90,
-        170
-    );
-
-}
-
-
-function drawDiaryBox() {
-
-    ctx.fillStyle =
-        "#3a2921";
-
-    ctx.fillRect(
-        560,
-        380,
-        120,
-        70
-    );
-
-}
-
-
-/* =========================================================
-   BASEMENT OBJECTS
-========================================================= */
-
-function drawBasementShelf() {
-
-    ctx.fillStyle =
-        "#302820";
-
-    ctx.fillRect(
-        100,
-        120,
-        260,
-        25
-    );
-
-    ctx.fillRect(
-        100,
-        220,
-        260,
-        25
-    );
-
-    ctx.fillRect(
-        100,
-        320,
-        260,
-        25
-    );
-
-}
-
-
-function drawOldBox() {
-
-    ctx.fillStyle =
-        "#51402e";
-
-    ctx.fillRect(
-        500,
-        330,
-        140,
-        90
-    );
-
-}
-
-
-function drawFinalDoor() {
-
-    ctx.fillStyle =
-        story.finalDoorUnlocked
-            ? "#554338"
-            : "#171717";
-
-    ctx.fillRect(
-        700,
-        100,
-        100,
-        170
-    );
-
-}
-
 
 /* =========================================================
    PLAYER
 ========================================================= */
+
+let lastStep =
+    0;
+
+function updatePlayer() {
+
+    let dx = 0;
+    let dy = 0;
+
+    if (
+        keys.w ||
+        keys.arrowup
+    ) dy--;
+
+    if (
+        keys.s ||
+        keys.arrowdown
+    ) dy++;
+
+    if (
+        keys.a ||
+        keys.arrowleft
+    ) dx--;
+
+    if (
+        keys.d ||
+        keys.arrowright
+    ) dx++;
+
+    if (
+        dx !== 0 ||
+        dy !== 0
+    ) {
+
+        const len =
+            Math.sqrt(
+                dx * dx +
+                dy * dy
+            );
+
+        dx /= len;
+        dy /= len;
+
+        player.x +=
+            dx *
+            player.speed;
+
+        player.y +=
+            dy *
+            player.speed;
+
+        const now =
+            performance.now();
+
+        if (
+            now - lastStep >
+            300
+        ) {
+
+            footstep();
+
+            lastStep =
+                now;
+        }
+    }
+
+    player.x =
+        Math.max(
+            20,
+            Math.min(
+                canvas.width - 20,
+                player.x
+            )
+        );
+
+    player.y =
+        Math.max(
+            20,
+            Math.min(
+                canvas.height - 20,
+                player.y
+            )
+        );
+
+    checkExits();
+}
 
 function drawPlayer() {
 
     ctx.save();
 
     ctx.fillStyle =
-        "rgba(0,0,0,.5)";
+        "rgba(0,0,0,.45)";
 
     ctx.beginPath();
 
     ctx.ellipse(
         player.x,
-        player.y + 11,
+        player.y + 12,
         15,
         6,
         0,
@@ -2301,7 +999,6 @@ function drawPlayer() {
     );
 
     ctx.fill();
-
 
     ctx.fillStyle =
         "#ddd";
@@ -2319,9 +1016,1035 @@ function drawPlayer() {
     ctx.fill();
 
     ctx.restore();
+}
+
+/* =========================================================
+   ROOM TRANSITION
+========================================================= */
+
+function enterRoom(room) {
+
+    if (!rooms[room]) return;
+
+    currentRoom =
+        room;
+
+    entity.visible =
+        false;
+
+    entity.state =
+        "hidden";
+
+    player.x =
+        canvas.width / 2;
+
+    player.y =
+        canvas.height / 2;
+
+    sound(
+        45,
+        .3,
+        .035
+    );
+
+    updateRoomUI();
+
+    roomMessage();
+}
+
+function updateRoomUI() {
+
+    const chapter =
+        document.getElementById(
+            "chapter"
+        );
+
+    if (chapter) {
+
+        chapter.textContent =
+            rooms[
+                currentRoom
+            ].name;
+
+    }
+}
+
+function roomMessage() {
+
+    if (
+        currentRoom ===
+        "hallway"
+    ) {
+
+        message(
+            "Lorong itu terasa lebih panjang dari sebelumnya."
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "living"
+    ) {
+
+        message(
+            "Ruang tamu masih menyimpan suara malam itu."
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "bedroom"
+    ) {
+
+        message(
+            "Udara di kamar ini jauh lebih dingin."
+        );
+
+        addFear(5);
+
+    }
+
+    if (
+        currentRoom ===
+        "basement"
+    ) {
+
+        message(
+            "Aku seharusnya tidak turun ke sini."
+        );
+
+        addFear(10);
+
+    }
+}
+
+/* =========================================================
+   EXITS
+========================================================= */
+
+function checkExits() {
+
+    const w =
+        canvas.width;
+
+    const h =
+        canvas.height;
+
+    if (
+        currentRoom ===
+        "hallway"
+    ) {
+
+        if (
+            player.x < 30
+        ) {
+
+            enterRoom(
+                "living"
+            );
+
+            player.x =
+                w - 55;
+
+        }
+
+        if (
+            player.y < 30 &&
+            player.x > 380 &&
+            player.x < 520
+        ) {
+
+            if (
+                story.bedroom
+            ) {
+
+                enterRoom(
+                    "bedroom"
+                );
+
+            }
+            else {
+
+                message(
+                    "Pintu kamar terkunci."
+                );
+
+                player.y =
+                    55;
+
+            }
+
+        }
+
+        if (
+            player.y >
+                h - 30 &&
+            player.x > 700
+        ) {
+
+            if (
+                story.basement
+            ) {
+
+                enterRoom(
+                    "basement"
+                );
+
+            }
+            else {
+
+                message(
+                    "Aku belum menemukan kuncinya."
+                );
+
+                player.y =
+                    h - 55;
+
+            }
+        }
+    }
+
+    else if (
+        currentRoom ===
+        "living"
+    ) {
+
+        if (
+            player.x >
+            w - 30
+        ) {
+
+            enterRoom(
+                "hallway"
+            );
+
+            player.x =
+                55;
+
+        }
+
+    }
+
+    else if (
+        currentRoom ===
+        "bedroom"
+    ) {
+
+        if (
+            player.y >
+            h - 30
+        ) {
+
+            enterRoom(
+                "hallway"
+            );
+
+            player.y =
+                55;
+
+        }
+
+    }
+
+    else if (
+        currentRoom ===
+        "basement"
+    ) {
+
+        if (
+            player.y < 30
+        ) {
+
+            enterRoom(
+                "hallway"
+            );
+
+            player.y =
+                h - 55;
+
+        }
+
+    }
+}
+
+/* =========================================================
+   WORLD
+========================================================= */
+
+function drawWorld() {
+
+    const room =
+        rooms[
+            currentRoom
+        ];
+
+    ctx.fillStyle =
+        room.wall;
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    drawWalls();
+
+    drawFloor();
+
+    drawFurniture();
+
+    drawDecorations();
+
+    drawDoors();
+
+    drawEntity();
+
+    drawPlayer();
+
+    drawLighting();
+
+    drawAtmosphere();
+}
+
+/* =========================================================
+   WALLS
+========================================================= */
+
+function drawWalls() {
+
+    ctx.fillStyle =
+        rooms[
+            currentRoom
+        ].wall;
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        35
+    );
+
+    ctx.fillRect(
+        0,
+        canvas.height - 35,
+        canvas.width,
+        35
+    );
+
+    ctx.fillRect(
+        0,
+        0,
+        35,
+        canvas.height
+    );
+
+    ctx.fillRect(
+        canvas.width - 35,
+        0,
+        35,
+        canvas.height
+    );
+}
+
+/* =========================================================
+   FLOOR
+========================================================= */
+
+function drawFloor() {
+
+    const room =
+        rooms[
+            currentRoom
+        ];
+
+    ctx.fillStyle =
+        room.floor;
+
+    ctx.fillRect(
+        35,
+        35,
+        canvas.width - 70,
+        canvas.height - 70
+    );
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.018)";
+
+    ctx.lineWidth =
+        1;
+
+    const spacing =
+        currentRoom ===
+        "basement"
+            ? 28
+            : 48;
+
+    for (
+        let x = 35;
+        x < canvas.width - 35;
+        x += spacing
+    ) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            x,
+            35
+        );
+
+        ctx.lineTo(
+            x,
+            canvas.height - 35
+        );
+
+        ctx.stroke();
+    }
+
+    for (
+        let y = 35;
+        y < canvas.height - 35;
+        y += spacing
+    ) {
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            35,
+            y
+        );
+
+        ctx.lineTo(
+            canvas.width - 35,
+            y
+        );
+
+        ctx.stroke();
+    }
+}
+
+/* =========================================================
+   FURNITURE
+========================================================= */
+
+function drawFurniture() {
+
+    if (
+        currentRoom ===
+        "hallway"
+    ) {
+
+        /* table */
+
+        shadowRect(
+            90,
+            120,
+            150,
+            70
+        );
+
+        woodRect(
+            90,
+            120,
+            150,
+            70
+        );
+
+        /* small drawer */
+
+        woodRect(
+            115,
+            140,
+            100,
+            38
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "living"
+    ) {
+
+        /* sofa */
+
+        shadowRect(
+            100,
+            350,
+            300,
+            90
+        );
+
+        roundedRect(
+            100,
+            350,
+            300,
+            90,
+            "#403636"
+        );
+
+        roundedRect(
+            125,
+            325,
+            90,
+            60,
+            "#4a3e3d"
+        );
+
+        roundedRect(
+            285,
+            325,
+            90,
+            60,
+            "#4a3e3d"
+        );
+
+        /* coffee table */
+
+        woodRect(
+            440,
+            390,
+            150,
+            45
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "bedroom"
+    ) {
+
+        /* bed */
+
+        shadowRect(
+            100,
+            130,
+            290,
+            150
+        );
+
+        roundedRect(
+            100,
+            130,
+            290,
+            150,
+            "#3e3940"
+        );
+
+        roundedRect(
+            120,
+            150,
+            250,
+            110,
+            "#514b55"
+        );
+
+        /* pillow */
+
+        roundedRect(
+            140,
+            165,
+            90,
+            45,
+            "#706872"
+        );
+
+        /* wardrobe */
+
+        woodRect(
+            510,
+            90,
+            130,
+            230
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "basement"
+    ) {
+
+        /* shelves */
+
+        for (
+            let y = 100;
+            y < 390;
+            y += 100
+        ) {
+
+            woodRect(
+                80,
+                y,
+                300,
+                22
+            );
+
+        }
+
+        /* boxes */
+
+        woodRect(
+            500,
+            350,
+            130,
+            80
+        );
+
+        woodRect(
+            650,
+            390,
+            100,
+            60
+        );
+
+    }
+}
+
+/* =========================================================
+   DECORATIONS
+========================================================= */
+
+function drawDecorations() {
+
+    if (
+        currentRoom ===
+        "hallway"
+    ) {
+
+        drawClock();
+
+        drawPhoto();
+
+        drawPainting(
+            560,
+            75,
+            130,
+            100
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "living"
+    ) {
+
+        drawRadio();
+
+        drawPainting(
+            300,
+            70,
+            160,
+            120
+        );
+
+        drawLamp(
+            700,
+            160
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "bedroom"
+    ) {
+
+        drawMirror();
+
+        drawLamp(
+            700,
+            330
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "basement"
+    ) {
+
+        drawPipe();
+
+        drawBoxMark();
+
+    }
+}
+
+/* =========================================================
+   DRAW HELPERS
+========================================================= */
+
+function shadowRect(
+    x,
+    y,
+    w,
+    h
+) {
+
+    ctx.fillStyle =
+        "rgba(0,0,0,.38)";
+
+    ctx.fillRect(
+        x + 7,
+        y + 8,
+        w,
+        h
+    );
+}
+
+function woodRect(
+    x,
+    y,
+    w,
+    h
+) {
+
+    ctx.fillStyle =
+        "#3b2b23";
+
+    ctx.fillRect(
+        x,
+        y,
+        w,
+        h
+    );
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.035)";
+
+    ctx.strokeRect(
+        x,
+        y,
+        w,
+        h
+    );
+}
+
+function roundedRect(
+    x,
+    y,
+    w,
+    h,
+    color
+) {
+
+    ctx.fillStyle =
+        color;
+
+    ctx.beginPath();
+
+    ctx.roundRect(
+        x,
+        y,
+        w,
+        h,
+        10
+    );
+
+    ctx.fill();
+}
+
+function drawPainting(
+    x,
+    y,
+    w,
+    h
+) {
+
+    ctx.strokeStyle =
+        "#5b4435";
+
+    ctx.lineWidth =
+        8;
+
+    ctx.strokeRect(
+        x,
+        y,
+        w,
+        h
+    );
+
+    ctx.fillStyle =
+        "rgba(100,100,100,.09)";
+
+    ctx.fillRect(
+        x + 5,
+        y + 5,
+        w - 10,
+        h - 10
+    );
+}
+
+function drawPhoto() {
+
+    ctx.fillStyle =
+        "#bca77f";
+
+    ctx.fillRect(
+        145,
+        140,
+        50,
+        35
+    );
+
+    ctx.strokeStyle =
+        "#5b4635";
+
+    ctx.strokeRect(
+        140,
+        135,
+        60,
+        45
+    );
+}
+
+function drawClock() {
+
+    ctx.strokeStyle =
+        "#999";
+
+    ctx.lineWidth =
+        3;
+
+    ctx.beginPath();
+
+    ctx.arc(
+        730,
+        120,
+        34,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+    ctx.fillStyle =
+        "#aaa";
+
+    ctx.font =
+        "11px serif";
+
+    ctx.fillText(
+        "03:17",
+        714,
+        124
+    );
+}
+
+function drawRadio() {
+
+    ctx.fillStyle =
+        "#151515";
+
+    ctx.fillRect(
+        600,
+        170,
+        110,
+        70
+    );
+
+    ctx.fillStyle =
+        "#777";
+
+    ctx.fillRect(
+        615,
+        185,
+        75,
+        28
+    );
+
+    ctx.strokeStyle =
+        "#555";
+
+    ctx.strokeRect(
+        610,
+        180,
+        85,
+        38
+    );
+}
+
+function drawMirror() {
+
+    ctx.strokeStyle =
+        "#756e6b";
+
+    ctx.lineWidth =
+        7;
+
+    ctx.strokeRect(
+        650,
+        90,
+        100,
+        190
+    );
+
+    ctx.fillStyle =
+        "rgba(150,160,170,.09)";
+
+    ctx.fillRect(
+        657,
+        97,
+        86,
+        176
+    );
+}
+
+function drawLamp(
+    x,
+    y
+) {
+
+    ctx.fillStyle =
+        "#40352b";
+
+    ctx.fillRect(
+        x,
+        y,
+        8,
+        80
+    );
+
+    ctx.beginPath();
+
+    ctx.arc(
+        x + 4,
+        y,
+        20,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
 
 }
 
+function drawPipe() {
+
+    ctx.strokeStyle =
+        "#4c4b45";
+
+    ctx.lineWidth =
+        8;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        450,
+        50
+    );
+
+    ctx.lineTo(
+        450,
+        350
+    );
+
+    ctx.lineTo(
+        650,
+        350
+    );
+
+    ctx.stroke();
+}
+
+function drawBoxMark() {
+
+    ctx.fillStyle =
+        "rgba(180,150,100,.15)";
+
+    ctx.font =
+        "20px serif";
+
+    ctx.fillText(
+        "0317",
+        520,
+        395
+    );
+}
+
+/* =========================================================
+   DOORS
+========================================================= */
+
+function drawDoors() {
+
+    ctx.fillStyle =
+        "#17120f";
+
+    if (
+        currentRoom ===
+        "hallway"
+    ) {
+
+        ctx.fillRect(
+            400,
+            35,
+            100,
+            15
+        );
+
+        ctx.fillRect(
+            700,
+            canvas.height - 50,
+            120,
+            15
+        );
+
+        ctx.fillRect(
+            0,
+            220,
+            35,
+            150
+        );
+    }
+
+    if (
+        currentRoom ===
+        "living"
+    ) {
+
+        ctx.fillRect(
+            canvas.width - 35,
+            220,
+            35,
+            150
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "bedroom"
+    ) {
+
+        ctx.fillRect(
+            400,
+            canvas.height - 35,
+            100,
+            15
+        );
+
+    }
+
+    if (
+        currentRoom ===
+        "basement"
+    ) {
+
+        ctx.fillRect(
+            700,
+            90,
+            100,
+            180
+        );
+
+    }
+}
 
 /* =========================================================
    LIGHTING
@@ -2329,10 +2052,32 @@ function drawPlayer() {
 
 function drawLighting() {
 
-    if (!flashlight) {
+    const room =
+        rooms[
+            currentRoom
+        ];
+
+    ctx.fillStyle =
+        `rgba(
+            0,
+            0,
+            0,
+            ${1 - room.light}
+        )`;
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    if (
+        !flashlight
+    ) {
 
         ctx.fillStyle =
-            "rgba(0,0,0,.95)";
+            "rgba(0,0,0,.94)";
 
         ctx.fillRect(
             0,
@@ -2342,48 +2087,43 @@ function drawLighting() {
         );
 
         return;
-
     }
-
 
     const radius =
         currentRoom ===
         "basement"
-            ? 190
-            : 250;
-
+            ? 180
+            : 260;
 
     const gradient =
         ctx.createRadialGradient(
             player.x,
             player.y,
-            15,
+            10,
             player.x,
             player.y,
             radius
         );
 
-
     gradient.addColorStop(
         0,
-        "rgba(255,245,210,.38)"
+        "rgba(255,245,210,.34)"
     );
 
     gradient.addColorStop(
         .25,
-        "rgba(255,245,210,.16)"
+        "rgba(255,245,210,.14)"
     );
 
     gradient.addColorStop(
         .65,
-        "rgba(0,0,0,.55)"
+        "rgba(0,0,0,.42)"
     );
 
     gradient.addColorStop(
         1,
-        "rgba(0,0,0,.95)"
+        "rgba(0,0,0,.92)"
     );
-
 
     ctx.fillStyle =
         gradient;
@@ -2394,402 +2134,89 @@ function drawLighting() {
         canvas.width,
         canvas.height
     );
-
 }
 
-
 /* =========================================================
-   FEAR VISUAL
+   ATMOSPHERE
 ========================================================= */
 
-function drawFearOverlay() {
+function drawAtmosphere() {
 
-    if (
-        fear <
-        30
-    ) {
-        return;
-    }
+    /* dust */
 
-    const alpha =
-        (
-            fear - 30
-        ) /
-        500;
-
-    ctx.fillStyle =
-        `rgba(0,0,0,${alpha})`;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-}
-
-
-/* =========================================================
-   MOVEMENT
-========================================================= */
-
-const keys = {};
-
-
-window.addEventListener(
-    "keydown",
-    event => {
-
-        keys[
-            event.key.toLowerCase()
-        ] = true;
-
-
-        if (
-            event.key.toLowerCase()
-            ===
-            "e"
-        ) {
-
-            interact();
-
-        }
-
-
-        if (
-            event.key.toLowerCase()
-            ===
-            "f"
-        ) {
-
-            toggleFlashlight();
-
-        }
-
-    }
-);
-
-
-window.addEventListener(
-    "keyup",
-    event => {
-
-        keys[
-            event.key.toLowerCase()
-        ] = false;
-
-    }
-);
-
-
-function updatePlayer() {
-
-    if (
-        !gameStarted ||
-        gameOver
-    ) {
-        return;
-    }
-
-    let dx = 0;
-    let dy = 0;
-
-
-    if (
-        keys["w"] ||
-        keys["arrowup"]
-    ) {
-        dy--;
-    }
-
-
-    if (
-        keys["s"] ||
-        keys["arrowdown"]
-    ) {
-        dy++;
-    }
-
-
-    if (
-        keys["a"] ||
-        keys["arrowleft"]
-    ) {
-        dx--;
-    }
-
-
-    if (
-        keys["d"] ||
-        keys["arrowright"]
-    ) {
-        dx++;
-    }
-
-
-    if (
-        dx !== 0 ||
-        dy !== 0
+    for (
+        let i = 0;
+        i < 25;
+        i++
     ) {
 
-        const length =
-            Math.sqrt(
-                dx * dx +
-                dy * dy
+        const x =
+            (
+                i * 137 +
+                gameTime * .12
+            ) %
+            canvas.width;
+
+        const y =
+            (
+                i * 71 +
+                gameTime * .04
+            ) %
+            canvas.height;
+
+        ctx.fillStyle =
+            "rgba(255,255,255,.035)";
+
+        ctx.fillRect(
+            x,
+            y,
+            2,
+            2
+        );
+    }
+
+    /* fear vignette */
+
+    if (
+        fear > 20
+    ) {
+
+        const alpha =
+            (
+                fear - 20
+            ) / 180;
+
+        const gradient =
+            ctx.createRadialGradient(
+                canvas.width / 2,
+                canvas.height / 2,
+                80,
+                canvas.width / 2,
+                canvas.height / 2,
+                canvas.width / 1.2
             );
 
-        dx /=
-            length;
+        gradient.addColorStop(
+            0,
+            "rgba(0,0,0,0)"
+        );
 
-        dy /=
-            length;
+        gradient.addColorStop(
+            1,
+            `rgba(0,0,0,${alpha})`
+        );
 
+        ctx.fillStyle =
+            gradient;
 
-        player.x +=
-            dx *
-            player.speed;
-
-        player.y +=
-            dy *
-            player.speed;
-
-
-        footstep();
-
+        ctx.fillRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
     }
-
-
-    const margin =
-        18;
-
-
-    player.x =
-        Math.max(
-            margin,
-            Math.min(
-                canvas.width -
-                margin,
-                player.x
-            )
-        );
-
-
-    player.y =
-        Math.max(
-            margin,
-            Math.min(
-                canvas.height -
-                margin,
-                player.y
-            )
-        );
-
-
-    checkRoomExits();
-
 }
-
-
-/* =========================================================
-   MOBILE CONTROLS
-========================================================= */
-
-function holdButton(
-    id,
-    key
-) {
-
-    const button =
-        document.getElementById(id);
-
-    if (!button) {
-        return;
-    }
-
-
-    button.addEventListener(
-        "touchstart",
-        event => {
-
-            event.preventDefault();
-
-            keys[key] =
-                true;
-
-        },
-        {
-            passive:false
-        }
-    );
-
-
-    button.addEventListener(
-        "touchend",
-        event => {
-
-            event.preventDefault();
-
-            keys[key] =
-                false;
-
-        },
-        {
-            passive:false
-        }
-    );
-
-
-    button.addEventListener(
-        "touchcancel",
-        () => {
-
-            keys[key] =
-                false;
-
-        }
-    );
-
-}
-
-
-holdButton(
-    "upBtn",
-    "arrowup"
-);
-
-holdButton(
-    "downBtn",
-    "arrowdown"
-);
-
-holdButton(
-    "leftBtn",
-    "arrowleft"
-);
-
-holdButton(
-    "rightBtn",
-    "arrowright"
-);
-
-
-/* =========================================================
-   FLASHLIGHT
-========================================================= */
-
-function toggleFlashlight() {
-
-    if (
-        battery <= 0
-    ) {
-
-        flashlight =
-            false;
-
-        storyMessage(
-            "Baterainya habis."
-        );
-
-        return;
-
-    }
-
-
-    flashlight =
-        !flashlight;
-
-
-    playTone(
-        flashlight
-            ? 180
-            : 80,
-        .12,
-        .04
-    );
-
-}
-
-
-const flashlightButton =
-    document.getElementById(
-        "flashlightBtn"
-    );
-
-
-if (
-    flashlightButton
-) {
-
-    flashlightButton.onclick =
-        toggleFlashlight;
-
-}
-
-
-/* =========================================================
-   BATTERY
-========================================================= */
-
-function updateBattery() {
-
-    if (
-        !flashlight ||
-        !gameStarted ||
-        gameOver
-    ) {
-        return;
-    }
-
-
-    battery -=
-        currentRoom ===
-        "basement"
-            ? .012
-            : .008;
-
-
-    if (
-        battery <= 0
-    ) {
-
-        battery =
-            0;
-
-        flashlight =
-            false;
-
-        storyMessage(
-            "Senterku mati."
-        );
-
-        addFear(
-            12
-        );
-
-    }
-
-
-    const batteryEl =
-        document.getElementById(
-            "battery"
-        );
-
-
-    if (
-        batteryEl
-    ) {
-
-        batteryEl.textContent =
-            Math.floor(
-                battery
-            ) +
-            "%";
-
-    }
-
-}
-
 
 /* =========================================================
    INTERACTION
@@ -2800,22 +2227,7 @@ function interact() {
     if (
         !gameStarted ||
         gameOver
-    ) {
-        return;
-    }
-
-
-    if (
-        interactionCooldown >
-        0
-    ) {
-        return;
-    }
-
-
-    interactionCooldown =
-        20;
-
+    ) return;
 
     const x =
         player.x;
@@ -2823,94 +2235,69 @@ function interact() {
     const y =
         player.y;
 
-
-    /* =====================================================
+    /* =========================
        HALLWAY
-    ===================================================== */
+    ========================= */
 
     if (
         currentRoom ===
         "hallway"
     ) {
 
-        /* PHOTO */
-
         if (
             distance(
                 x,
                 y,
-                168,
+                170,
                 158
-            ) <
-            75
+            ) < 75
         ) {
 
             inspectPhoto();
 
             return;
-
         }
-
-
-        /* CLOCK */
 
         if (
             distance(
                 x,
                 y,
-                700,
+                730,
                 120
-            ) <
-            75
+            ) < 75
         ) {
 
             inspectClock();
 
             return;
-
         }
 
-
-        /* BEDROOM */
-
         if (
-            x >
-            370 &&
-            x <
-            530 &&
-            y <
-            80
+            y < 85 &&
+            x > 380 &&
+            x < 520
         ) {
 
-            interactBedroomDoor();
+            bedroomDoor();
 
             return;
-
         }
 
-
-        /* BASEMENT */
-
         if (
-            x >
-            700 &&
             y >
-            canvas.height -
-            100
+            canvas.height - 100 &&
+            x > 680
         ) {
 
-            interactBasementDoor();
+            basementDoor();
 
             return;
-
         }
-
     }
 
-
-    /* =====================================================
-       LIVING ROOM
-    ===================================================== */
+    /* =========================
+       LIVING
+    ========================= */
 
     if (
         currentRoom ===
@@ -2921,41 +2308,34 @@ function interact() {
             distance(
                 x,
                 y,
-                635,
-                190
-            ) <
-            100
+                650,
+                205
+            ) < 100
         ) {
 
-            interactRadio();
+            radio();
 
             return;
-
         }
-
 
         if (
             distance(
                 x,
                 y,
-                365,
-                145
-            ) <
-            120
+                380,
+                130
+            ) < 110
         ) {
 
-            inspectPainting();
+            painting();
 
             return;
-
         }
-
     }
 
-
-    /* =====================================================
+    /* =========================
        BEDROOM
-    ===================================================== */
+    ========================= */
 
     if (
         currentRoom ===
@@ -2966,41 +2346,34 @@ function interact() {
             distance(
                 x,
                 y,
-                670,
+                700,
                 180
-            ) <
-            100
+            ) < 100
         ) {
 
-            inspectMirror();
+            mirror();
 
             return;
-
         }
-
 
         if (
             distance(
                 x,
                 y,
-                620,
-                415
-            ) <
-            100
+                575,
+                200
+            ) < 130
         ) {
 
-            inspectDiaryBox();
+            wardrobe();
 
             return;
-
         }
-
     }
 
-
-    /* =====================================================
+    /* =========================
        BASEMENT
-    ===================================================== */
+    ========================= */
 
     if (
         currentRoom ===
@@ -3011,285 +2384,214 @@ function interact() {
             distance(
                 x,
                 y,
-                570,
-                375
-            ) <
-            110
+                560,
+                390
+            ) < 110
         ) {
 
-            inspectOldBox();
+            oldBox();
 
             return;
-
         }
-
 
         if (
-            x >
-            690 &&
-            y >
-            80 &&
-            y <
-            300
+            x > 680 &&
+            y > 80 &&
+            y < 300
         ) {
 
-            interactFinalDoor();
+            finalDoor();
 
             return;
-
         }
-
     }
-
 }
 
-
 /* =========================================================
-   PHOTO PUZZLE
+   PUZZLES
 ========================================================= */
 
 function inspectPhoto() {
 
     if (
-        !story.photographFound
+        !story.photograph
     ) {
 
-        story.photographFound =
+        story.photograph =
             true;
 
-        addInventory(
+        addItem(
             "Old Family Photograph"
         );
 
-        addDiary(
+        diaryEntry(
             "THE PHOTOGRAPH",
-            "Empat orang berdiri di depan rumah. Namun ada satu sosok di belakang mereka. Wajahnya sengaja dicoret."
+            "Di balik keluarga itu ada sosok lain. Wajahnya dicoret, tetapi matanya masih terlihat."
         );
 
-        unlockAchievement(
-            "CURIOUS"
+        achievement(
+            "photo",
+            "THE CURIOUS",
+            "Inspect the old family photograph."
         );
 
-        storyMessage(
-            "Ada sesuatu yang aneh di foto ini."
+        objective(
+            "Periksa jam tua yang berhenti pada 03:17."
         );
 
-        updateObjective(
-            "Periksa jam tua yang berhenti pada pukul 03:17."
-        );
-
-        addFear(
-            5
+        message(
+            "Ada sesuatu di belakang mereka."
         );
 
         return;
-
     }
 
-
     inspect(
-        "FOTO KELUARGA",
-        "Di balik foto tertulis: 'Ia datang setiap pukul 03:17.'"
+        "FOTO",
+        "Tulisan di belakangnya: 'Ia selalu datang pada 03:17.'"
     );
-
 }
-
-
-/* =========================================================
-   CLOCK PUZZLE
-========================================================= */
 
 function inspectClock() {
 
     if (
-        !story.clockInspected
+        !story.clock
     ) {
 
-        story.clockInspected =
+        story.clock =
             true;
 
-        addInventory(
+        addItem(
             "Clock Note"
         );
 
-        addDiary(
+        diaryEntry(
             "03:17",
-            "Jam tua itu berhenti pada pukul 03:17. Waktu yang sama tertulis samar di balik foto keluarga."
+            "Jam berhenti tepat pada pukul 03:17."
         );
 
-        unlockAchievement(
-            "THREE_SEVENTEEN"
+        achievement(
+            "clock",
+            "03:17",
+            "Discover the time hidden in the house."
         );
 
-        updateObjective(
+        objective(
             "Cari radio tua di ruang tamu."
         );
 
-        storyMessage(
+        message(
             "03:17... lagi."
         );
 
-        addFear(
-            5
-        );
-
         return;
-
     }
-
 
     inspect(
-        "JAM TUA",
-        "Jarumnya tetap diam di 03:17. Seolah waktu di rumah ini berhenti malam itu."
+        "JAM",
+        "Jarumnya tidak pernah bergerak sejak malam itu."
     );
-
 }
 
-
-/* =========================================================
-   LIVING ROOM RADIO
-========================================================= */
-
-function interactRadio() {
+function radio() {
 
     if (
-        !story.clockInspected
+        !story.clock
     ) {
 
-        storyMessage(
-            "Radio itu tidak menyala."
+        message(
+            "Radio tidak menyala."
         );
 
         return;
-
     }
 
-
     if (
-        !story.radioHeard
+        !story.radio
     ) {
 
-        story.radioHeard =
+        story.radio =
             true;
 
-        unlockAchievement(
-            "LISTEN"
+        addItem(
+            "Radio Recording"
         );
 
-        addDiary(
+        diaryEntry(
             "THE RADIO",
-            "Radio tua itu tiba-tiba menyala. Suara seorang perempuan menyebut tiga angka: 0... 3... 1... 7."
+            "Suara dari radio mengulang empat angka: 0... 3... 1... 7."
         );
 
-        playRadioSequence();
-
-        updateObjective(
-            "Gunakan kode 0317 pada sesuatu yang tersembunyi."
+        achievement(
+            "radio",
+            "LISTEN",
+            "Listen to the mysterious radio."
         );
 
-        addFear(
-            10
-        );
-
-        return;
-
-    }
-
-
-    inspect(
-        "RADIO",
-        "Sekarang hanya terdengar suara statis."
-    );
-
-}
-
-
-function playRadioSequence() {
-
-    playTone(
-        110,
-        .25,
-        .06,
-        "sawtooth"
-    );
-
-    setTimeout(() => {
-
-        playTone(
+        sound(
             90,
-            .25,
-            .05,
+            .5,
+            .06,
             "sawtooth"
         );
 
-    }, 500);
+        setTimeout(
+            whisper,
+            700
+        );
 
-    setTimeout(() => {
+        objective(
+            "Cari tempat yang menggunakan kode 0317."
+        );
 
-        entityWhisper();
-
-        storyMessage(
+        message(
             "0... 3... 1... 7..."
         );
 
-    }, 1100);
-
-}
-
-
-/* =========================================================
-   PAINTING
-========================================================= */
-
-function inspectPainting() {
-
-    if (
-        !story.radioCodeFound
-    ) {
-
-        if (
-            story.radioHeard
-        ) {
-
-            story.radioCodeFound =
-                true;
-
-            addInventory(
-                "Code 0317"
-            );
-
-            inspect(
-                "LUKISAN KELUARGA",
-                "Di balik bingkai terdapat empat angka kecil: 0317."
-            );
-
-            updateObjective(
-                "Cari sesuatu yang bisa dibuka dengan kode 0317."
-            );
-
-            return;
-
-        }
-
+        return;
     }
 
+    inspect(
+        "RADIO",
+        "Hanya suara statis yang tersisa."
+    );
+}
+
+function painting() {
+
+    if (
+        story.radio &&
+        !story.code
+    ) {
+
+        story.code =
+            true;
+
+        addItem(
+            "Code 0317"
+        );
+
+        objective(
+            "Gunakan kode 0317 untuk membuka kamar."
+        );
+
+        message(
+            "Kode itu cocok dengan sesuatu."
+        );
+
+        return;
+    }
 
     inspect(
         "LUKISAN",
-        "Mata pada lukisan terasa seperti mengikuti gerakanku."
+        "Tatapan pada lukisan terasa berbeda setiap kali aku melihatnya."
     );
-
 }
 
-
-/* =========================================================
-   BEDROOM DOOR
-========================================================= */
-
-function interactBedroomDoor() {
+function bedroomDoor() {
 
     if (
-        story.bedroomUnlocked
+        story.bedroom
     ) {
 
         enterRoom(
@@ -3297,346 +2599,411 @@ function interactBedroomDoor() {
         );
 
         return;
-
     }
 
-
     if (
-        story.radioCodeFound
+        story.code
     ) {
 
-        story.bedroomUnlocked =
+        story.bedroom =
             true;
 
-        addInventory(
+        addItem(
             "Bedroom Key"
         );
 
-        unlockAchievement(
-            "THE_ROOM"
+        achievement(
+            "room",
+            "THE LAST ROOM",
+            "Enter the forbidden bedroom."
         );
 
-        storyMessage(
-            "Kunci itu cocok."
+        objective(
+            "Cari tahu kenapa kamar ini dikunci."
         );
 
-        updateObjective(
-            "Masuk ke kamar paling ujung."
+        message(
+            "Pintunya terbuka..."
         );
 
         return;
-
     }
 
+    doorSound();
 
-    playTone(
-        55,
-        .4,
-        .06,
-        "sawtooth"
+    message(
+        "Terkunci."
     );
-
-    storyMessage(
-        "Pintunya terkunci."
-    );
-
-    setTimeout(() => {
-
-        storyMessage(
-            "Dari dalam terdengar ketukan."
-        );
-
-    }, 700);
-
-    addFear(
-        8
-    );
-
 }
 
-
-/* =========================================================
-   BEDROOM MIRROR
-========================================================= */
-
-function inspectMirror() {
+function mirror() {
 
     if (
-        !story.mirrorClueFound
+        !story.mirror
     ) {
 
-        story.mirrorClueFound =
+        story.mirror =
             true;
 
-        addDiary(
+        diaryEntry(
             "THE MIRROR",
-            "Pantulan di cermin tidak mengikuti gerakanku selama beberapa detik."
+            "Pantulan di cermin bergerak sedikit terlambat."
         );
 
-        inspect(
-            "CERMIN",
-            "Tulisan muncul di permukaan kaca: 'Turunlah ke bawah sebelum dia bangun.'"
-        );
-
-        updateObjective(
-            "Cari jalan menuju basement."
+        objective(
+            "Periksa lemari tua."
         );
 
         addFear(
             12
         );
 
+        message(
+            "Itu bukan pantulanku."
+        );
+
         return;
-
     }
-
 
     inspect(
         "CERMIN",
-        "Sekarang cermin hanya memantulkan diriku."
+        "Sekarang pantulannya kembali normal."
     );
-
 }
 
-
-/* =========================================================
-   BEDROOM DIARY BOX
-========================================================= */
-
-function inspectDiaryBox() {
+function wardrobe() {
 
     if (
-        story.mirrorClueFound &&
-        !story.basementUnlocked
+        story.mirror &&
+        !story.basement
     ) {
 
-        story.basementUnlocked =
+        story.basement =
             true;
 
-        addInventory(
+        addItem(
             "Basement Key"
         );
 
-        addDiary(
-            "THE LAST ENTRY",
-            "Jika kau membaca ini, berarti pintu kamar sudah terbuka. Jangan biarkan dia mengetahui bahwa kau menemukan jalan ke basement."
+        diaryEntry(
+            "THE KEY",
+            "Sebuah kunci ditemukan di balik pakaian lama."
         );
 
-        updateObjective(
-            "Buka pintu basement."
+        objective(
+            "Turun ke basement."
         );
 
-        storyMessage(
-            "Sebuah kunci jatuh dari kotak."
+        message(
+            "Kunci basement."
         );
 
         return;
-
     }
 
-
     inspect(
-        "KOTAK TUA",
-        "Tidak ada apa-apa lagi di dalamnya."
+        "LEMARI",
+        "Bau kayu tua dan debu."
     );
-
 }
 
-
-/* =========================================================
-   BASEMENT DOOR
-========================================================= */
-
-function interactBasementDoor() {
+function basementDoor() {
 
     if (
-        story.basementUnlocked
+        story.basement
     ) {
 
         enterRoom(
             "basement"
         );
 
-        unlockAchievement(
-            "BELOW"
+        achievement(
+            "basement",
+            "BELOW",
+            "Descend beneath the house."
         );
 
-        updateObjective(
-            "Temukan rahasia terakhir rumah ini."
+        objective(
+            "Temukan apa yang sebenarnya disembunyikan."
         );
 
         return;
-
     }
 
-
-    storyMessage(
-        "Aku belum menemukan kuncinya."
+    message(
+        "Aku belum punya kuncinya."
     );
-
 }
 
-
-/* =========================================================
-   BASEMENT BOX
-========================================================= */
-
-function inspectOldBox() {
+function oldBox() {
 
     if (
-        !story.basementClueFound
+        !story.letter
     ) {
 
-        story.basementClueFound =
+        story.letter =
             true;
 
-        addInventory(
+        addItem(
             "Old Letter"
         );
 
-        addDiary(
-            "THE OLD LETTER",
-            "Surat itu menjelaskan bahwa seseorang mencoba mengunci Entity di rumah ini. Namun segelnya tidak pernah selesai."
+        diaryEntry(
+            "THE LETTER",
+            "Surat itu menjelaskan bahwa rumah ini dibangun untuk mengurung sesuatu."
         );
 
-        updateObjective(
-            "Temukan pintu terakhir di basement."
-        );
-
-        storyMessage(
-            "Jadi selama ini... mereka mencoba mengurungnya."
+        objective(
+            "Cari pintu terakhir."
         );
 
         addFear(
             15
         );
 
+        message(
+            "Rumah ini... adalah penjara."
+        );
+
         return;
-
     }
-
 
     inspect(
-        "KOTAK TUA",
-        "Kotak itu kosong."
+        "KOTAK",
+        "Tidak ada apa-apa lagi."
     );
-
 }
 
-
-/* =========================================================
-   FINAL DOOR
-========================================================= */
-
-function interactFinalDoor() {
+function finalDoor() {
 
     if (
-        !story.basementClueFound
+        !story.letter
     ) {
 
-        storyMessage(
-            "Aku belum tahu apa yang ada di balik pintu."
+        message(
+            "Aku belum tahu apa yang ada di baliknya."
         );
 
         return;
-
     }
 
-
     if (
-        !story.secretFound
+        !story.finalDoor
     ) {
 
-        story.secretFound =
+        story.finalDoor =
             true;
 
-        unlockAchievement(
-            "SECRET"
+        story.houseKey =
+            true;
+
+        addItem(
+            "House Key"
         );
 
-        addDiary(
-            "THE TRUTH",
-            "Di balik pintu ada tulisan: 'Rumah ini tidak pernah dihantui. Rumah ini adalah penjaranya.'"
-        );
-
-        inspect(
-            "PESAN TERAKHIR",
-            "Rumah ini bukan tempat tinggal Entity. Rumah ini adalah tempat ia dikurung."
-        );
-
-        updateObjective(
-            "Temukan cara keluar sebelum Entity bangun sepenuhnya."
-        );
-
-        storyMessage(
-            "Selama ini aku salah..."
-        );
-
-        entity.aggression +=
-            3;
-
-        return;
-
-    }
-
-
-    unlockFinalEnding();
-
-}
-
-
-/* =========================================================
-   MULTIPLE ENDING PREPARATION
-========================================================= */
-
-function unlockFinalEnding() {
-
-    story.finalDoorUnlocked =
-        true;
-
-    addInventory(
-        "House Key"
-    );
-
-    updateObjective(
-        "Cari jalan keluar dari rumah."
-    );
-
-    storyMessage(
-        "Aku menemukan kunci rumah."
-    );
-
-    setTimeout(() => {
-
-        storyMessage(
-            "Tapi Entity juga sudah bangun."
-        );
+        story.entityAwake =
+            true;
 
         entity.room =
             currentRoom;
 
         entity.x =
-            canvas.width / 2;
+            180;
 
         entity.y =
-            100;
+            120;
 
         entity.visible =
             true;
 
         entity.state =
-            ENTITY_STATES.NEAR;
+            "watching";
 
-        entity.timer =
-            0;
+        objective(
+            "Temukan jalan keluar."
+        );
 
-    }, 1800);
+        message(
+            "Rumah ini bukan rumah. Ini penjara."
+        );
 
+        diaryEntry(
+            "THE TRUTH",
+            "Mereka tidak tinggal di rumah ini. Mereka mengurung sesuatu di sini."
+        );
+
+        return;
+    }
+
+    if (
+        story.houseKey
+    ) {
+
+        ending();
+    }
 }
 
+/* =========================================================
+   ENDING SYSTEM
+========================================================= */
+
+function ending() {
+
+    gameOver =
+        true;
+
+    story.escaped =
+        true;
+
+    let endingType =
+        "ESCAPE";
+
+    if (
+        story.secret
+    ) {
+
+        endingType =
+            "TRUE ENDING";
+
+    }
+    else if (
+        story.letter &&
+        story.finalDoor
+    ) {
+
+        endingType =
+            "THE TRUTH";
+
+    }
+
+    showEnding(
+        endingType
+    );
+}
+
+function showEnding(type) {
+
+    const overlay =
+        document.createElement("div");
+
+    Object.assign(
+        overlay.style,
+        {
+            position: "fixed",
+            inset: "0",
+            background:
+                "rgba(0,0,0,.95)",
+            zIndex: "20000",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            color: "#fff",
+            padding: "25px"
+        }
+    );
+
+    let description = "";
+
+    if (
+        type ===
+        "ESCAPE"
+    ) {
+
+        description =
+            "Kau berhasil keluar dari rumah. Tapi dari jendela lantai atas, sesuatu masih memperhatikanmu.";
+
+    }
+
+    else if (
+        type ===
+        "THE TRUTH"
+    ) {
+
+        description =
+            "Kau menemukan kebenaran tentang rumah itu. Namun satu pertanyaan masih belum terjawab: siapa yang membangun penjara tersebut?";
+
+    }
+
+    else {
+
+        description =
+            "Kau menemukan rahasia terdalam rumah. Entity tidak pernah benar-benar dikurung. Ia hanya menunggu seseorang membuka pintunya.";
+
+    }
+
+    overlay.innerHTML = `
+        <div style="max-width:650px">
+
+            <div style="
+                font-size:11px;
+                letter-spacing:5px;
+                opacity:.45;
+                margin-bottom:25px;
+            ">
+                ENDING
+            </div>
+
+            <h1 style="
+                font-family:Cinzel,serif;
+                font-size:42px;
+                letter-spacing:5px;
+                margin-bottom:25px;
+            ">
+                ${type}
+            </h1>
+
+            <p style="
+                font-family:Inter,sans-serif;
+                line-height:1.8;
+                opacity:.72;
+            ">
+                ${description}
+            </p>
+
+            <button
+                id="restartGame"
+                style="
+                    margin-top:35px;
+                    padding:12px 25px;
+                    background:transparent;
+                    color:white;
+                    border:1px solid rgba(255,255,255,.3);
+                    cursor:pointer;
+                "
+            >
+                PLAY AGAIN
+            </button>
+
+        </div>
+    `;
+
+    document.body.appendChild(
+        overlay
+    );
+
+    achievement(
+        "ending",
+        type,
+        "Complete an ending."
+    );
+
+    document
+        .getElementById(
+            "restartGame"
+        )
+        ?.addEventListener(
+            "click",
+            () => {
+
+                location.reload();
+
+            }
+        );
+}
 
 /* =========================================================
-   GENERIC INSPECT PANEL
+   INSPECT
 ========================================================= */
 
 function inspect(
@@ -3659,44 +3026,27 @@ function inspect(
             "inspectText"
         );
 
-
     if (!overlay) return;
 
-
-    if (titleEl) {
-
+    if (titleEl)
         titleEl.textContent =
             title;
 
-    }
-
-
-    if (textEl) {
-
+    if (textEl)
         textEl.textContent =
             text;
-
-    }
-
 
     overlay.classList.add(
         "active"
     );
-
 }
 
-
-const closeInspect =
-    document.getElementById(
+document
+    .getElementById(
         "closeInspect"
-    );
-
-
-if (
-    closeInspect
-) {
-
-    closeInspect.onclick =
+    )
+    ?.addEventListener(
+        "click",
         () => {
 
             document
@@ -3707,338 +3057,259 @@ if (
                     "active"
                 );
 
-        };
-
-}
-
-
-/* =========================================================
-   STORY MESSAGE
-========================================================= */
-
-let messageTimer;
-
-
-function storyMessage(
-    text
-) {
-
-    const element =
-        document.getElementById(
-            "storyMessage"
-        );
-
-    if (!element) return;
-
-
-    element.textContent =
-        text;
-
-    element.classList.add(
-        "show"
+        }
     );
 
-
-    clearTimeout(
-        messageTimer
-    );
-
-
-    messageTimer =
-        setTimeout(() => {
-
-            element.classList.remove(
-                "show"
-            );
-
-        }, 2800);
-
-}
-
-
 /* =========================================================
-   OBJECTIVE
+   FLASHLIGHT
 ========================================================= */
 
-function updateObjective(
-    text
-) {
-
-    const element =
-        document.getElementById(
-            "objective"
-        );
+function toggleFlashlight() {
 
     if (
-        element
+        battery <= 0
     ) {
 
-        element.textContent =
-            text;
+        flashlight =
+            false;
 
-    }
-
-}
-
-
-/* =========================================================
-   INVENTORY RENDER
-========================================================= */
-
-function renderInventory() {
-
-    const list =
-        document.getElementById(
-            "inventoryList"
+        message(
+            "Baterainya habis."
         );
 
-    if (!list) return;
-
-
-    list.innerHTML = "";
-
-
-    inventory.forEach(item => {
-
-        const div =
-            document.createElement(
-                "div"
-            );
-
-        div.textContent =
-            "◆ " +
-            item;
-
-        list.appendChild(
-            div
-        );
-
-    });
-
-}
-
-
-/* =========================================================
-   INVENTORY BUTTON
-========================================================= */
-
-const inventoryButton =
-    document.getElementById(
-        "inventoryButton"
-    );
-
-
-if (
-    inventoryButton
-) {
-
-    inventoryButton.onclick =
-        () => {
-
-            document
-                .getElementById(
-                    "inventoryOverlay"
-                )
-                ?.classList.toggle(
-                    "active"
-                );
-
-        };
-
-}
-
-
-/* =========================================================
-   DIARY BUTTON
-========================================================= */
-
-const diaryButton =
-    document.getElementById(
-        "diaryButton"
-    );
-
-
-if (
-    diaryButton
-) {
-
-    diaryButton.onclick =
-        () => {
-
-            document
-                .getElementById(
-                    "diaryOverlay"
-                )
-                ?.classList.toggle(
-                    "active"
-                );
-
-        };
-
-}
-
-
-/* =========================================================
-   RANDOM HORROR EVENTS
-========================================================= */
-
-let horrorCooldown =
-    0;
-
-
-function randomHorrorEvents() {
-
-    if (
-        !gameStarted ||
-        gameOver
-    ) {
         return;
     }
 
+    flashlight =
+        !flashlight;
 
-    if (
-        horrorCooldown >
-        0
-    ) {
-
-        horrorCooldown--;
-
-        return;
-
-    }
-
-
-    const chance =
-        Math.random();
-
-
-    if (
-        chance <
-        .0018
-    ) {
-
-        horrorCooldown =
-            850;
-
-        eventWhisper();
-
-    }
-
-    else if (
-        chance <
-        .003
-    ) {
-
-        horrorCooldown =
-            900;
-
-        eventLight();
-
-    }
-
-    else if (
-        chance <
-        .004
-    ) {
-
-        horrorCooldown =
-            1000;
-
-        eventKnock();
-
-    }
-
+    sound(
+        flashlight
+            ? 180
+            : 75,
+        .12,
+        .035
+    );
 }
 
+document
+    .getElementById(
+        "flashlightBtn"
+    )
+    ?.addEventListener(
+        "click",
+        toggleFlashlight
+    );
 
 /* =========================================================
-   HORROR EVENTS
+   BATTERY
 ========================================================= */
 
-function eventWhisper() {
-
-    entityWhisper();
-
-    addFear(
-        5
-    );
-
-    storyMessage(
-        "Ada suara berbisik di dekat telingaku."
-    );
-
-}
-
-
-function eventLight() {
+function updateBattery() {
 
     if (
         !flashlight
+    ) return;
+
+    battery -=
+        currentRoom ===
+        "basement"
+            ? .012
+            : .007;
+
+    if (
+        battery <= 0
     ) {
-        return;
-    }
 
-
-    flashlight =
-        false;
-
-
-    setTimeout(() => {
+        battery =
+            0;
 
         flashlight =
-            true;
+            false;
 
-    }, 240);
-
-
-    addFear(
-        8
-    );
-
-
-    storyMessage(
-        "Cahaya senterku berkedip."
-    );
-
-}
-
-
-function eventKnock() {
-
-    playTone(
-        45,
-        .3,
-        .07,
-        "sawtooth"
-    );
-
-
-    setTimeout(() => {
-
-        playTone(
-            42,
-            .3,
-            .06,
-            "sawtooth"
+        message(
+            "Senterku mati."
         );
 
-    }, 450);
+        addFear(
+            15
+        );
+    }
 
+    const el =
+        document.getElementById(
+            "battery"
+        );
 
-    addFear(
-        7
-    );
+    if (el) {
 
+        el.textContent =
+            Math.floor(
+                battery
+            ) + "%";
 
-    storyMessage(
-        "Tok... tok... tok..."
-    );
-
+    }
 }
 
+/* =========================================================
+   MOBILE
+========================================================= */
+
+function holdButton(
+    id,
+    key
+) {
+
+    const button =
+        document.getElementById(
+            id
+        );
+
+    if (!button) return;
+
+    button.addEventListener(
+        "touchstart",
+        e => {
+
+            e.preventDefault();
+
+            keys[key] =
+                true;
+
+        },
+        {
+            passive:false
+        }
+    );
+
+    button.addEventListener(
+        "touchend",
+        e => {
+
+            e.preventDefault();
+
+            keys[key] =
+                false;
+
+        },
+        {
+            passive:false
+        }
+    );
+}
+
+holdButton(
+    "upBtn",
+    "arrowup"
+);
+
+holdButton(
+    "downBtn",
+    "arrowdown"
+);
+
+holdButton(
+    "leftBtn",
+    "arrowleft"
+);
+
+holdButton(
+    "rightBtn",
+    "arrowright"
+);
+
+document
+    .getElementById(
+        "interactBtn"
+    )
+    ?.addEventListener(
+        "click",
+        interact
+    );
 
 /* =========================================================
-   GAME START
+   KEYBOARD
+========================================================= */
+
+window.addEventListener(
+    "keydown",
+    e => {
+
+        keys[
+            e.key.toLowerCase()
+        ] = true;
+
+        if (
+            e.key.toLowerCase() ===
+            "e"
+        ) {
+
+            interact();
+
+        }
+
+        if (
+            e.key.toLowerCase() ===
+            "f"
+        ) {
+
+            toggleFlashlight();
+
+        }
+
+    }
+);
+
+window.addEventListener(
+    "keyup",
+    e => {
+
+        keys[
+            e.key.toLowerCase()
+        ] = false;
+
+    }
+);
+
+/* =========================================================
+   CHARACTER CREATOR
+========================================================= */
+
+document
+    .getElementById(
+        "startGame"
+    )
+    ?.addEventListener(
+        "click",
+        () => {
+
+            playerName =
+                document
+                    .getElementById(
+                        "playerName"
+                    )
+                    ?.value
+                    .trim() ||
+                "Unknown";
+
+            initAudio();
+
+            if (
+                audioCtx.state ===
+                "suspended"
+            ) {
+
+                audioCtx.resume();
+
+            }
+
+            startGame();
+
+        }
+    );
+
+/* =========================================================
+   START
 ========================================================= */
 
 function startGame() {
@@ -4047,26 +3318,20 @@ function startGame() {
         "game"
     );
 
-
     gameStarted =
         true;
 
     gameOver =
         false;
 
-
     currentRoom =
         "hallway";
 
-
     player.x =
-        canvas.width /
-        2;
+        canvas.width / 2;
 
     player.y =
-        canvas.height /
-        2;
-
+        canvas.height / 2;
 
     battery =
         100;
@@ -4077,13 +3342,14 @@ function startGame() {
     fear =
         0;
 
+    gameTime =
+        0;
 
     inventory =
         [];
 
     diary =
         [];
-
 
     Object.keys(story)
         .forEach(key => {
@@ -4093,95 +3359,37 @@ function startGame() {
 
         });
 
-
     entity.visible =
         false;
 
     entity.state =
-        ENTITY_STATES.HIDDEN;
+        "hidden";
 
-    entity.timer =
-        0;
-
-    entity.aggression =
-        0;
-
-
-    addDiary(
+    diaryEntry(
         "FIRST NIGHT",
-        "Aku akhirnya kembali ke rumah lama keluargaku. Entah kenapa rasanya rumah ini masih menungguku."
+        "Aku kembali ke rumah lama keluarga. Tidak ada yang tinggal di sini sejak malam itu."
     );
 
-
-    updateObjective(
+    objective(
         "Cari tahu apa yang terjadi di rumah ini."
     );
 
-
-    storyMessage(
+    message(
         `Selamat datang kembali, ${playerName}.`
     );
 
+    updateRoomUI();
 
-    roomSound();
+    renderInventory();
 
+    renderDiary();
 }
-
-
-/* =========================================================
-   CHARACTER CREATOR
-========================================================= */
-
-const startGameButton =
-    document.getElementById(
-        "startGame"
-    );
-
-
-if (
-    startGameButton
-) {
-
-    startGameButton.onclick =
-        () => {
-
-            const input =
-                document.getElementById(
-                    "playerName"
-                );
-
-
-            playerName =
-                input?.value.trim() ||
-                "Unknown";
-
-
-            initAudio();
-
-
-            if (
-                audioCtx &&
-                audioCtx.state ===
-                "suspended"
-            ) {
-
-                audioCtx.resume();
-
-            }
-
-
-            startGame();
-
-        };
-
-}
-
 
 /* =========================================================
    CHARACTER PREVIEW
 ========================================================= */
 
-function updateCharacterPreview() {
+function updatePreview() {
 
     const skin =
         document.getElementById(
@@ -4189,13 +3397,11 @@ function updateCharacterPreview() {
         )?.value ||
         "#c98b68";
 
-
     const hair =
         document.getElementById(
             "hairColor"
         )?.value ||
         "#171717";
-
 
     const outfit =
         document.getElementById(
@@ -4203,335 +3409,198 @@ function updateCharacterPreview() {
         )?.value ||
         "#202020";
 
-
-    const skinPart =
+    const s =
         document.querySelector(
             ".preview-skin"
         );
 
-
-    const hairPart =
+    const h =
         document.querySelector(
             ".preview-hair"
         );
 
-
-    const outfitPart =
+    const o =
         document.querySelector(
             ".preview-outfit"
         );
 
-
-    if (
-        skinPart
-    ) {
-
-        skinPart.style.background =
+    if (s)
+        s.style.background =
             skin;
 
-    }
-
-
-    if (
-        hairPart
-    ) {
-
-        hairPart.style.background =
+    if (h)
+        h.style.background =
             hair;
 
-    }
-
-
-    if (
-        outfitPart
-    ) {
-
-        outfitPart.style.background =
+    if (o)
+        o.style.background =
             outfit;
-
-    }
-
 }
-
 
 [
     "skinColor",
     "hairColor",
     "outfitColor"
-]
-.forEach(id => {
+].forEach(id => {
 
-    const element =
-        document.getElementById(
-            id
-        );
-
-
-    if (
-        element
-    ) {
-
-        element.addEventListener(
+    document
+        .getElementById(id)
+        ?.addEventListener(
             "input",
-            updateCharacterPreview
+            updatePreview
         );
-
-    }
 
 });
 
-
-updateCharacterPreview();
-
+updatePreview();
 
 /* =========================================================
    CINEMATIC
 ========================================================= */
 
-const cinematicText =
-    document.getElementById(
-        "cinematicText"
-    );
+const scenes = [
 
+    [
+        "CHAPTER I",
+        "23:41 PM."
+    ],
 
-const chapterLabel =
-    document.getElementById(
-        "chapterLabel"
-    );
+    [
+        "THE RETURN",
+        "Hujan turun ketika aku kembali ke rumah lama keluargaku."
+    ],
 
+    [
+        "THE HOUSE",
+        "Tidak ada yang tinggal di sini sejak malam itu."
+    ],
 
-const skipButton =
-    document.getElementById(
-        "skipCinematic"
-    );
+    [
+        "THE WARNING",
+        "Jangan masuk ke kamar paling ujung."
+    ],
 
-
-const cinematicScenes = [
-
-    {
-        chapter:
-            "CHAPTER I",
-
-        text:
-            "23:41 PM."
-    },
-
-    {
-        chapter:
-            "THE RETURN",
-
-        text:
-            "Hujan turun ketika aku kembali ke rumah lama keluargaku."
-    },
-
-    {
-        chapter:
-            "THE HOUSE",
-
-        text:
-            "Tidak ada yang tinggal di sini sejak malam itu."
-    },
-
-    {
-        chapter:
-            "THE WARNING",
-
-        text:
-            "Jangan masuk ke kamar paling ujung."
-    },
-
-    {
-        chapter:
-            "THE HOUSE REMEMBERS",
-
-        text:
-            "Lalu aku mendengar langkah kaki dari lantai atas."
-    }
+    [
+        "THE HOUSE REMEMBERS",
+        "Tapi rumah itu masih mengingat semuanya."
+    ]
 
 ];
 
-
-let cinematicIndex =
+let sceneIndex =
     0;
 
-
 function playCinematic() {
-
-    if (
-        !cinematicText ||
-        !chapterLabel
-    ) {
-
-        startCreator();
-
-        return;
-
-    }
-
 
     showScreen(
         "cinematic"
     );
 
-
-    cinematicIndex =
+    sceneIndex =
         0;
 
-
-    showCinematicScene();
-
+    nextScene();
 }
 
-
-function showCinematicScene() {
+function nextScene() {
 
     if (
-        cinematicIndex >=
-        cinematicScenes.length
+        sceneIndex >=
+        scenes.length
     ) {
 
-        startCreator();
+        showScreen(
+            "creator"
+        );
 
         return;
-
     }
 
+    const label =
+        document.getElementById(
+            "chapterLabel"
+        );
 
-    const scene =
-        cinematicScenes[
-            cinematicIndex
-        ];
+    const text =
+        document.getElementById(
+            "cinematicText"
+        );
 
+    if (
+        label
+    )
+        label.textContent =
+            scenes[
+                sceneIndex
+            ][0];
 
-    chapterLabel.textContent =
-        scene.chapter;
+    if (
+        text
+    )
+        text.textContent =
+            scenes[
+                sceneIndex
+            ][1];
 
-
-    cinematicText.textContent =
-        scene.text;
-
-
-    cinematicText.style.opacity =
-        "0";
-
-
-    setTimeout(() => {
-
-        cinematicText.style.opacity =
-            "1";
-
-    }, 100);
-
-
-    playTone(
-        60,
-        .5,
-        .03
-    );
-
-
-    cinematicIndex++;
-
+    sceneIndex++;
 
     setTimeout(
-        showCinematicScene,
-        2600
+        nextScene,
+        2500
     );
-
 }
 
+document
+    .getElementById(
+        "skipCinematic"
+    )
+    ?.addEventListener(
+        "click",
+        () => {
 
-function startCreator() {
+            showScreen(
+                "creator"
+            );
 
-    showScreen(
-        "creator"
+        }
     );
-
-}
-
-
-if (
-    skipButton
-) {
-
-    skipButton.onclick =
-        startCreator;
-
-}
-
 
 /* =========================================================
-   CANVAS RESIZE
+   CANVAS
 ========================================================= */
 
 function resizeCanvas() {
 
     if (!canvas) return;
 
-
     canvas.width =
         canvas.clientWidth ||
         900;
 
-
     canvas.height =
         canvas.clientHeight ||
         600;
-
 }
-
 
 window.addEventListener(
     "resize",
     resizeCanvas
 );
 
-
 resizeCanvas();
 
-
 /* =========================================================
-   INTERACT MOBILE
-========================================================= */
-
-const interactButton =
-    document.getElementById(
-        "interactBtn"
-    );
-
-
-if (
-    interactButton
-) {
-
-    interactButton.onclick =
-        interact;
-
-}
-
-
-/* =========================================================
-   UPDATE
+   LOOP
 ========================================================= */
 
 function update() {
 
     if (
-        !gameStarted
-    ) {
-        return;
-    }
+        !gameStarted ||
+        gameOver
+    ) return;
 
-
-    if (
-        interactionCooldown >
-        0
-    ) {
-
-        interactionCooldown--;
-
-    }
-
+    gameTime++;
 
     updatePlayer();
 
@@ -4539,73 +3608,46 @@ function update() {
 
     updateEntity();
 
-    randomHorrorEvents();
+    if (
+        gameTime % 900 === 0
+    ) {
 
+        calm(5);
+
+    }
 }
-
-
-/* =========================================================
-   RENDER
-========================================================= */
 
 function render() {
 
     if (
         !gameStarted
-    ) {
-        return;
-    }
-
+    ) return;
 
     drawWorld();
-
 }
 
-
-/* =========================================================
-   GAME LOOP
-========================================================= */
-
-function gameLoop() {
+function loop() {
 
     update();
 
     render();
 
     requestAnimationFrame(
-        gameLoop
+        loop
     );
-
 }
-
-
-/* =========================================================
-   INIT
-========================================================= */
-
-createHorrorOverlay();
-
-createAchievementUI();
-
-renderInventory();
-
-renderDiary();
 
 showScreen(
     "cinematic"
 );
 
+setTimeout(
+    playCinematic,
+    500
+);
 
-setTimeout(() => {
-
-    playCinematic();
-
-}, 500);
-
-
-gameLoop();
-
+loop();
 
 /* =========================================================
-   END PHASE 4
+   END PHASE 5
 ========================================================= */

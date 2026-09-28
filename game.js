@@ -6485,3 +6485,70 @@ loop();
 
 
 })();
+/* =========================================================
+   PHASE 9 HOTFIX — OVERLAY / TOUCH FIX
+   ========================================================= */
+
+(() => {
+  const fix = document.createElement("style");
+
+  fix.textContent = `
+    /* Phase 9 UI tidak boleh menghalangi tombol game */
+    #tlrMemoryText,
+    #tlrMirrorOverlay,
+    #tlrMemoryPanel {
+      pointer-events: none !important;
+    }
+
+    /* Chapter 3 hanya menerima input ketika benar-benar aktif */
+    #tlrChapter3 {
+      pointer-events: none !important;
+    }
+
+    #tlrChapter3.active {
+      pointer-events: auto !important;
+    }
+  `;
+
+  document.head.appendChild(fix);
+
+
+  /* Pastikan semua overlay tersembunyi tidak menangkap sentuhan */
+  function releaseInvisibleLayers() {
+
+    const ids = [
+      "tlrMemoryText",
+      "tlrMirrorOverlay",
+      "tlrChapter3",
+      "tlrEventText",
+      "tlrClockOverlay"
+    ];
+
+    ids.forEach(id => {
+
+      const el = document.getElementById(id);
+
+      if (!el) return;
+
+      const style =
+        window.getComputedStyle(el);
+
+      const opacity =
+        parseFloat(style.opacity);
+
+      if (
+        opacity === 0 &&
+        !el.classList.contains("active")
+      ) {
+        el.style.pointerEvents = "none";
+      }
+    });
+  }
+
+
+  setInterval(
+    releaseInvisibleLayers,
+    500
+  );
+
+})();
